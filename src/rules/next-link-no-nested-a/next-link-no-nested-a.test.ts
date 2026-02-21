@@ -92,6 +92,39 @@ describe("nextLinkNoNestedARule", () => {
 
     expect(violations).toHaveLength(0);
   });
+
+  it("detects self-closing <a /> inside Link", () => {
+    const file = createSourceFile(`
+      import Link from "next/link";
+      export default function Nav() {
+        return <Link href="/about"><a /></Link>;
+      }
+    `);
+    const violations = nextLinkNoNestedARule.scan(file);
+    expect(violations).toHaveLength(1);
+  });
+
+  it("does not report for Link with button child", () => {
+    const file = createSourceFile(`
+      import Link from "next/link";
+      export default function Nav() {
+        return <Link href="/about"><button>Click</button></Link>;
+      }
+    `);
+    const violations = nextLinkNoNestedARule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("does not report for Link with only JSX expression children", () => {
+    const file = createSourceFile(`
+      import Link from "next/link";
+      export default function Nav() {
+        return <Link href="/about">{children}</Link>;
+      }
+    `);
+    const violations = nextLinkNoNestedARule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
 });
 
 describe("applyNextLinkNoNestedAFix", () => {

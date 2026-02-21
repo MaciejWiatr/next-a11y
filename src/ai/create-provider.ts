@@ -8,6 +8,7 @@ const PROVIDER_PACKAGES: Record<ProviderName, string> = {
   anthropic: "@ai-sdk/anthropic",
   google: "@ai-sdk/google",
   ollama: "ollama-ai-provider",
+  openrouter: "@openrouter/ai-sdk-provider",
 };
 
 const PROVIDER_INSTALL: Record<ProviderName, string> = {
@@ -15,6 +16,7 @@ const PROVIDER_INSTALL: Record<ProviderName, string> = {
   anthropic: "npm install @ai-sdk/anthropic",
   google: "npm install @ai-sdk/google",
   ollama: "npm install ollama-ai-provider",
+  openrouter: "npm install @openrouter/ai-sdk-provider",
 };
 
 export function createProvider(
@@ -56,6 +58,17 @@ export function createProvider(
     case "ollama": {
       const { ollama } = mod;
       return ollama(model);
+    }
+    case "openrouter": {
+      const apiKey = process.env.OPENROUTER_API_KEY;
+      if (!apiKey) {
+        throw new Error(
+          "OpenRouter requires OPENROUTER_API_KEY. Set it in .env or your environment."
+        );
+      }
+      const { createOpenRouter } = mod;
+      const openrouter = createOpenRouter({ apiKey });
+      return openrouter(model);
     }
     default:
       throw new Error(`Unknown provider: ${provider}`);

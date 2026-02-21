@@ -1,12 +1,13 @@
 import { SyntaxKind } from "ts-morph";
 import type { SourceFile } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
+import { extractContext } from "../../scan/context.js";
 
 const PAGE_FILE_PATTERN = /\bpage\.(tsx|jsx|ts|js)$/;
 
 export const nextMetadataTitleRule: Rule = {
   id: "next-metadata-title",
-  type: "deterministic",
+  type: "ai",
 
   scan(file: SourceFile): Violation[] {
     const filePath = file.getFilePath();
@@ -71,7 +72,10 @@ export const nextMetadataTitleRule: Rule = {
       }
     }
 
-    // Neither found — produce a violation on line 1
+    // Neither found — produce a violation with AI fix
+    const context = extractContext(file);
+    const heuristicTitle = context.route === "/" ? context.componentName : (context.route?.slice(1).split("/").pop() ?? context.componentName);
+
     return [
       {
         rule: "next-metadata-title",
@@ -81,6 +85,15 @@ export const nextMetadataTitleRule: Rule = {
         element: "page",
         message:
           "Page is missing metadata.title \u2014 Next.js route announcer will be silent",
+        fix: {
+          type: "insert-metadata",
+          attribute: "title",
+          value: async () => {
+            // Heuristic: use route segment or component name (e.g. /about → "About", Home → "Home")
+            const segment = heuristicTitle;
+            return segment ? segment.charAt(0).toUpperCase() + segment.slice(1) : "Page";
+          },
+        },
       },
     ];
   },

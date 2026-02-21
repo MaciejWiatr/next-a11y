@@ -7,11 +7,12 @@ export interface CLIFlags {
   fix?: boolean;
   interactive?: boolean;
   noAi?: boolean;
+  fillAlt?: boolean;
   provider?: string;
   model?: string;
   minScore?: number;
 }
-
+ 
 export async function loadConfigFile(cwd: string): Promise<A11yConfig> {
   const configNames = ["a11y.config.ts", "a11y.config.js", "a11y.config.mjs"];
   for (const name of configNames) {
@@ -51,7 +52,7 @@ export function resolveConfig(
   const model =
     cliFlags.model ??
     merged.model ??
-    (provider ? PROVIDER_DEFAULTS[provider] : "gpt-4.1-nano");
+    (provider ? PROVIDER_DEFAULTS[provider] : "gpt-4o-mini");
 
   return {
     provider,
@@ -66,6 +67,7 @@ export function resolveConfig(
     fix: cliFlags.fix ?? false,
     interactive: cliFlags.interactive ?? false,
     noAi: cliFlags.noAi ?? false,
+    fillAlt: cliFlags.fillAlt ?? merged.fillAlt ?? true,
     minScore: cliFlags.minScore,
   };
 }

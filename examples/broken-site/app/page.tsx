@@ -1,4 +1,4 @@
-// No metadata export — violation: next-metadata-title
+// Violation: next-metadata-title (no metadata export)
 import { Hero } from "../components/Hero";
 import { SearchForm } from "../components/SearchForm";
 

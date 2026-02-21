@@ -1,3 +1,4 @@
+// Violations: img-alt (generic "photo", filename "IMG_4232.jpg")
 import Image from "next/image";
 
 export function TeamSection() {

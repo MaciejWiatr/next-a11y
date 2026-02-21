@@ -348,13 +348,33 @@ describe("resolveStaticImportPath", () => {
     expect(result).toBe(path.join(publicDir, "hero.jpg"));
   });
 
-  it("returns undefined for dynamic patterns with brackets", () => {
+  it("returns undefined for bracket access when object not found in file", () => {
     const file = createFile(
       `import { imgs } from "./data";\n<img src={imgs[key].src} />`,
       path.join(tmpDir, "components", "Test.tsx")
     );
     const result = resolveStaticImportPath("imgs[key].src", file, tmpDir);
     expect(result).toBeUndefined();
+  });
+
+  it("resolves bracket access via object literal values", () => {
+    const file = createFile(
+      [
+        'import { img_hero, img_product } from "@/data/images";',
+        "",
+        "const imageMap: Record<string, any> = {",
+        '  "hero-1": img_hero,',
+        '  "product-1": img_product,',
+        "};",
+        "",
+        "export function Gallery({ code }: { code: string }) {",
+        "  return <img src={imageMap[code].src} />;",
+        "}",
+      ].join("\n"),
+      path.join(tmpDir, "components", "DynTest.tsx")
+    );
+    const result = resolveStaticImportPath("imageMap[code].src", file, tmpDir);
+    expect(result).toBe(path.join(publicDir, "hero.jpg"));
   });
 
   it("returns undefined for function calls", () => {
@@ -489,7 +509,7 @@ describe("end-to-end barrel import resolution", () => {
     expect(result).toBe(path.join(publicDir, "product.png"));
   });
 
-  it("correctly identifies dynamic access as unresolvable", () => {
+  it("resolves dynamic bracket access through object literal to first image", () => {
     const file = createFile(
       [
         'import { img_hero } from "@/data/images";',
@@ -501,6 +521,6 @@ describe("end-to-end barrel import resolution", () => {
       path.join(tmpDir, "components", "G.tsx")
     );
     const result = resolveStaticImportPath('items["hero"].src', file, tmpDir);
-    expect(result).toBeUndefined();
+    expect(result).toBe(path.join(publicDir, "hero.jpg"));
   });
 });

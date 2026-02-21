@@ -1,12 +1,13 @@
 import type { RuleId, RuleSetting } from "../scan/types.js";
 
-export type ProviderName = "openai" | "anthropic" | "google" | "ollama";
+export type ProviderName = "openai" | "anthropic" | "google" | "ollama" | "openrouter";
 
 export interface A11yConfig {
   provider?: ProviderName;
   model?: string;
   locale?: string;
   cache?: string;
+  fillAlt?: boolean;
   scanner?: {
     include?: string[];
     exclude?: string[];
@@ -27,14 +28,16 @@ export interface ResolvedConfig {
   fix: boolean;
   interactive: boolean;
   noAi: boolean;
+  fillAlt: boolean;
   minScore?: number;
 }
 
 export const PROVIDER_DEFAULTS: Record<ProviderName, string> = {
-  openai: "gpt-4.1-nano",
+  openai: "gpt-4o-mini",
   anthropic: "claude-haiku-4-5-20251001",
   google: "gemini-2.0-flash-lite",
   ollama: "llava",
+  openrouter: "openai/gpt-4o-mini",
 };
 
 export const PROVIDER_ENV: Record<ProviderName, string | null> = {
@@ -42,6 +45,7 @@ export const PROVIDER_ENV: Record<ProviderName, string | null> = {
   anthropic: "ANTHROPIC_API_KEY",
   google: "GOOGLE_GENERATIVE_AI_API_KEY",
   ollama: null,
+  openrouter: "OPENROUTER_API_KEY",
 };
 
 export const DEFAULT_RULES: Record<RuleId, RuleSetting> = {

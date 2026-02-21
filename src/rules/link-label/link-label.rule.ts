@@ -1,6 +1,7 @@
 import type { SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
+import { ICON_LABEL_OVERRIDES } from "../button-label/icon-name-map.js";
 
 export const linkLabelRule: Rule = {
   id: "link-label",
@@ -37,9 +38,13 @@ export const linkLabelRule: Rule = {
           if (hasTextContent) continue;
 
           // Check for JSX expression children like {t("key")}, {variable}, {cond ? "a" : "b"}
+          // Filter out expressions that are attribute values (e.g., onClick={...}, href={...})
           const hasExpressionContent = parent
             .getDescendantsOfKind(SyntaxKind.JsxExpression)
-            .some((expr) => expr.getExpression() != null);
+            .some((expr) => {
+              if (!expr.getExpression()) return false;
+              return expr.getParent()?.getKind() !== SyntaxKind.JsxAttribute;
+            });
 
           if (hasExpressionContent) continue;
 
@@ -113,7 +118,7 @@ function getIconName(
   );
   for (const child of selfClosingChildren) {
     const tag = child.getTagNameNode().getText();
-    if (tag.endsWith("Icon") || tag === "svg") {
+    if (tag.endsWith("Icon") || tag === "svg" || isUpperCase(tag[0])) {
       return tag;
     }
   }
@@ -121,7 +126,12 @@ function getIconName(
   return undefined;
 }
 
+function isUpperCase(ch: string): boolean {
+  return ch === ch.toUpperCase() && ch !== ch.toLowerCase();
+}
+
 function iconNameToLabel(iconName: string): string {
+  if (ICON_LABEL_OVERRIDES[iconName]) return ICON_LABEL_OVERRIDES[iconName];
   const name = iconName
     .replace(/Icon$/, "")
     .replace(/([a-z])([A-Z])/g, "$1 $2")

@@ -1,3 +1,4 @@
+// Violations: link-label (icon-only links), next-link-no-nested-a (Link with <a>)
 import Link from "next/link";
 
 export function Navbar() {

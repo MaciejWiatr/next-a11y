@@ -20,6 +20,7 @@ export function registerScanCommand(program: Command): void {
     .option("--no-ai", "Skip AI-powered fixes")
     .option("--provider <provider>", "Override AI provider")
     .option("--model <model>", "Override AI model")
+    .option("--fill-alt", "Replace empty alt=\"\" with AI-generated text")
     .option("--min-score <score>", "Minimum score threshold (exit code 1 if below)", parseInt)
     .action(async (targetPath: string, options: any) => {
       // Also load .env files from the scan target directory
@@ -45,6 +46,7 @@ export function registerScanCommand(program: Command): void {
         fix: options.fix,
         interactive: options.interactive,
         noAi: !options.ai, // commander inverts --no-ai to options.ai = false
+        fillAlt: options.fillAlt,
         provider: options.provider,
         model: options.model,
         minScore: options.minScore,

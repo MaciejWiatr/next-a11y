@@ -103,6 +103,47 @@ describe("htmlLangRule", () => {
 
     expect(violations).toHaveLength(0);
   });
+
+  it("skips html with dynamic lang attribute", () => {
+    const file = createSourceFile(
+      `export default function RootLayout() {
+  return <html lang={locale}><body>Hello</body></html>;
+}`,
+    );
+    const violations = htmlLangRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("detects html with other attributes but no lang", () => {
+    const file = createSourceFile(
+      `export default function RootLayout() {
+  return <html className="root" dir="ltr"><body>Hello</body></html>;
+}`,
+    );
+    const violations = htmlLangRule.scan(file);
+    expect(violations).toHaveLength(1);
+  });
+
+  it("checks nested layout paths like app/[locale]/layout.tsx", () => {
+    const file = createSourceFile(
+      `export default function Layout() {
+  return <html><body>Hello</body></html>;
+}`,
+      "/app/[locale]/layout.tsx",
+    );
+    const violations = htmlLangRule.scan(file);
+    expect(violations).toHaveLength(1);
+  });
+
+  it("does not flag other elements without lang in layout files", () => {
+    const file = createSourceFile(
+      `export default function Layout() {
+  return <html lang="en"><body><div className="app"><main>Hello</main></div></body></html>;
+}`,
+    );
+    const violations = htmlLangRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
 });
 
 describe("applyHtmlLangFix", () => {

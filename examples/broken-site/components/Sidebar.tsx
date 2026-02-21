@@ -1,3 +1,5 @@
+"use client";
+// Violations: button-label (icon-only), button-type (no type)
 export function Sidebar() {
   const toggle = () => {};
   const close = () => {};

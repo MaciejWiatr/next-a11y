@@ -21,11 +21,11 @@ const RULE_ICONS: Record<RuleId, string> = {
   "no-div-interactive": "div",
 };
 
-export function formatReport(result: ScanResult, fix: boolean, version?: string): string {
+export function formatReport(result: ScanResult, fix: boolean): string {
   const lines: string[] = [];
 
   lines.push("");
-  lines.push(pc.bold(`  next-a11y${version ? ` v${version}` : ""}`));
+  lines.push(pc.bold(`  next-a11y v0.1.7`));
   lines.push(
     `  Scanned ${result.filesScanned} files`
   );
@@ -53,7 +53,7 @@ export function formatReport(result: ScanResult, fix: boolean, version?: string)
 
   // Group violations by category
   const aiViolations = result.violations.filter((v) =>
-    ["img-alt", "button-label", "link-label", "input-label"].includes(v.rule)
+    ["img-alt", "button-label", "link-label", "input-label", "next-metadata-title"].includes(v.rule)
   );
   const deterministicViolations = result.violations.filter((v) =>
     [
@@ -65,12 +65,7 @@ export function formatReport(result: ScanResult, fix: boolean, version?: string)
     ].includes(v.rule)
   );
   const nextViolations = result.violations.filter((v) =>
-    [
-      "next-metadata-title",
-      "next-image-sizes",
-      "next-link-no-nested-a",
-      "next-skip-nav",
-    ].includes(v.rule)
+    ["next-image-sizes", "next-link-no-nested-a", "next-skip-nav"].includes(v.rule)
   );
   const detectOnlyViolations = result.violations.filter((v) =>
     ["heading-order", "no-div-interactive"].includes(v.rule)

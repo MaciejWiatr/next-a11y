@@ -45,6 +45,7 @@ export function registerInitCommand(program: Command): void {
           anthropic: "@ai-sdk/anthropic",
           google: "@ai-sdk/google",
           ollama: "ollama-ai-provider",
+          openrouter: "@openrouter/ai-sdk-provider",
         };
         const pkg = pkgMap[options.provider];
         if (pkg) {
@@ -99,9 +100,10 @@ async function promptInitOptions(): Promise<InitOptions> {
   const provider = await promptSelect<ProviderName | "none">(
     "Which AI provider do you want to use?",
     [
-      { value: "openai", label: "OpenAI (gpt-4.1-nano)" },
+      { value: "openai", label: "OpenAI (gpt-4o-mini)" },
       { value: "google", label: "Google (gemini-2.0-flash-lite) — free tier" },
       { value: "anthropic", label: "Anthropic (claude-haiku-4-5)" },
+      { value: "openrouter", label: "OpenRouter (300+ models, openai/gpt-4o-mini)" },
       { value: "ollama", label: "Ollama (local, offline)" },
       { value: "none", label: "None — deterministic fixes only" },
     ]
@@ -166,10 +168,11 @@ function generateConfig(provider: ProviderName | "none", include: string[]): str
       : `  provider: "${provider}",`;
 
   const modelMap: Record<string, string> = {
-    openai: "gpt-4.1-nano",
+    openai: "gpt-4o-mini",
     anthropic: "claude-haiku-4-5-20251001",
     google: "gemini-2.0-flash-lite",
     ollama: "llava",
+    openrouter: "openai/gpt-4o-mini",
   };
 
   const modelLine =

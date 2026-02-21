@@ -132,4 +132,47 @@ describe("nextImageSizesRule", () => {
 
     expect(violations).toHaveLength(1);
   });
+
+  it("works with named import of Image", () => {
+    const file = createSourceFile(`
+      import { Image } from "next/image";
+      export default function Hero() {
+        return <Image fill src="/hero.png" />;
+      }
+    `);
+    const violations = nextImageSizesRule.scan(file);
+    expect(violations).toHaveLength(1);
+  });
+
+  it("does not report for Image without any import", () => {
+    const file = createSourceFile(`
+      export default function Hero() {
+        return <Image fill src="/hero.png" />;
+      }
+    `);
+    const violations = nextImageSizesRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("does not report for img element (lowercase)", () => {
+    const file = createSourceFile(`
+      import Image from "next/image";
+      export default function Hero() {
+        return <img src="/hero.png" />;
+      }
+    `);
+    const violations = nextImageSizesRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("does not report for Image with sizes as expression", () => {
+    const file = createSourceFile(`
+      import Image from "next/image";
+      export default function Hero() {
+        return <Image fill sizes={responsiveSizes} src="/hero.png" />;
+      }
+    `);
+    const violations = nextImageSizesRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
 });

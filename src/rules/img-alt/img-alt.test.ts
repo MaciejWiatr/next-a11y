@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Project } from "ts-morph";
-import { imgAltRule } from "./img-alt.rule.js";
+import { createImgAltRule } from "./img-alt.rule.js";
+
+const imgAltRule = createImgAltRule({ fillAlt: false });
 import { classifyAlt } from "./img-alt.classify.js";
 
 function createFile(code: string, fileName = "test.tsx") {
@@ -44,10 +46,41 @@ describe("img-alt rule", () => {
     expect(violations).toHaveLength(0);
   });
 
-  it("skips dynamic alt expressions", () => {
+  it("skips dynamic function call expressions (i18n)", () => {
     const file = createFile(`<img src="/hero.png" alt={t('hero.alt')} />`);
     const violations = imgAltRule.scan(file);
     expect(violations).toHaveLength(0);
+  });
+
+  it("skips dynamic ternary expressions", () => {
+    const file = createFile(`<img src="/hero.png" alt={isActive ? "Active" : "Inactive"} />`);
+    const violations = imgAltRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("skips dynamic alt in array render (.map)", () => {
+    const file = createFile([
+      "const items = [{ src: '/a.png', alt: 'A' }];",
+      "<div>{items.map((item) => <img src={item.src} alt={item.alt} />)}</div>",
+    ].join("\n"));
+    const violations = imgAltRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("flags standalone dynamic variable alt as warning", () => {
+    const file = createFile(`<img src="/hero.png" alt={heroAlt} />`);
+    const violations = imgAltRule.scan(file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toContain("unverifiable");
+    expect(violations[0].fix).toBeUndefined();
+  });
+
+  it("flags standalone dynamic property access alt as warning", () => {
+    const file = createFile(`<img src="/hero.png" alt={data.title} />`);
+    const violations = imgAltRule.scan(file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toContain("unverifiable");
+    expect(violations[0].fix).toBeUndefined();
   });
 
   it("detects missing alt on next/image Image", () => {

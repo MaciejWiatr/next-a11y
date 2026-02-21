@@ -11,12 +11,23 @@ import { resolveImageSource, resolveStaticImportPath } from "../rules/img-alt/im
 import { SyntaxKind, Project } from "ts-morph";
 import pc from "picocolors";
 
-const CODE_CONTEXT_SYSTEM = `You are an accessibility expert. Generate a concise, descriptive aria-label for the given UI element.
+const CODE_CONTEXT_SYSTEM = `You are an accessibility expert. Generate an accessible aria-label for icon-only buttons and links.
+
 Rules:
 - Return ONLY the label text, nothing else
+- Use action-oriented phrasing: describe what happens when the user activates it, not what the icon looks like
+- Buttons: use verbs like "Add to cart", "Add to favorites", "Share", "Delete item", "Close"
+- Links to social/destination: use "Visit Twitter", "Visit Instagram", "Open in new tab"
+- Avoid bare nouns: "Cart" → "Add to cart", "Twitter" → "Visit Twitter", "Heart" → "Add to favorites"
 - Keep it short: 2-5 words
-- Describe the action or purpose, not the appearance
-- Use the component context and icon name to infer purpose`;
+- Use the icon name and component context to infer the action`;
+
+const METADATA_TITLE_SYSTEM = `You are an accessibility expert. Generate a concise page title for a Next.js route.
+Rules:
+- Return ONLY the title text, nothing else
+- Keep it short: 2-6 words
+- Use title case (e.g. "About Us", "Contact")
+- Infer from component name, route path, and page content (headings)`;
 
 export interface AiResolveOptions {
   config: ResolvedConfig;
@@ -31,7 +42,10 @@ export async function resolveAiFixes(opts: AiResolveOptions): Promise<void> {
   if (!config.provider) return;
 
   const aiViolations = violations.filter(
-    (v) => ["img-alt", "button-label", "link-label", "input-label"].includes(v.rule) && v.fix
+    (v) =>
+      ["img-alt", "button-label", "link-label", "input-label", "next-metadata-title"].includes(
+        v.rule
+      ) && v.fix
   );
 
   if (aiViolations.length === 0) return;
@@ -61,7 +75,10 @@ export async function resolveAiFixes(opts: AiResolveOptions): Promise<void> {
         case "button-label":
         case "link-label":
         case "input-label":
-          generatedValue = await resolveCodeContext(sourceFile, violation, model, config, cache);
+          generatedValue = await resolveCodeContext(project, sourceFile, violation, model, config, cache);
+          break;
+        case "next-metadata-title":
+          generatedValue = await resolveMetadataTitle(sourceFile, violation, model, config, cache);
           break;
         default:
           continue;
@@ -72,14 +89,27 @@ export async function resolveAiFixes(opts: AiResolveOptions): Promise<void> {
         violation.fix!.value = generatedValue;
         resolved++;
         onProgress?.(resolved, aiViolations.length, violation, generatedValue);
+      } else {
+        // AI couldn't generate a value (e.g. unresolvable image) — remove fix to prevent placeholder
+        delete violation.fix;
       }
     } catch (err: any) {
       // Fall back to heuristic value — resolve the original async function
       if (typeof violation.fix?.value === "function") {
         try {
-          violation.fix.value = await violation.fix.value();
+          const fallback = await violation.fix.value();
+          // Never use placeholder for img-alt — it's not real alt text
+          if (
+            violation.rule === "img-alt" &&
+            fallback === "[AI-generated alt text placeholder]"
+          ) {
+            delete violation.fix;
+          } else {
+            violation.fix!.value = fallback;
+          }
         } catch {
-          // Keep the function, applyFix will call it
+          if (violation.rule === "img-alt") delete violation.fix;
+          // Keep the function for other rules, applyFix will call it
         }
       }
     }
@@ -128,22 +158,9 @@ async function resolveImgAlt(
   });
 
   if (imageSource.type === "unresolvable") {
-    // Context-only generation
-    const cacheKey = FsCache.hashContent(Buffer.from(srcValue + context.componentName + config.locale));
-    const cached = cache.get(cacheKey);
-    if (cached && cached.locale === config.locale) return cached.value;
-
-    const result = await generate({
-      model,
-      system: IMG_ALT_SYSTEM_PROMPT,
-      prompt: prompt + `\nImage source: ${srcValue}\nNote: Image could not be loaded, generate alt text based on context only.`,
-    });
-
-    cache.set(cacheKey, {
-      value: result, model: model.modelId, locale: config.locale,
-      rule: "img-alt", generatedAt: new Date().toISOString(),
-    });
-    return result;
+    // Can't generate meaningful alt without seeing the image
+    console.log(pc.dim(`  AI: skipped ${violation.filePath.replace(process.cwd() + "/", "")}:${violation.line} — dynamic image source, cannot resolve`));
+    return "";
   }
 
   // Check cache
@@ -165,6 +182,7 @@ async function resolveImgAlt(
 }
 
 async function resolveCodeContext(
+  project: Project,
   file: SourceFile,
   violation: Violation,
   model: LanguageModel,
@@ -174,21 +192,25 @@ async function resolveCodeContext(
   const context = extractContext(file);
   const element = violation.element;
 
-  // Build context string for cache key
-  const contextStr = `${violation.rule}:${element}:${context.componentName}:${config.locale}`;
+  // Get icon name from source (button/link contains <CartIcon /> etc.)
+  const iconName = getIconNameFromViolation(project, violation);
+
+  // Build context string for cache key — include iconName so each icon gets its own label
+  const contextStr = `${violation.rule}:${iconName ?? "unknown"}:${element}:${context.componentName}:${config.locale}`;
   const cacheKey = FsCache.hashContent(Buffer.from(contextStr));
 
   const cached = cache.get(cacheKey);
   if (cached && cached.locale === config.locale) return cached.value;
 
   // Build prompt
-  let prompt = `Generate an aria-label for this ${violation.rule === "button-label" ? "button" : violation.rule === "link-label" ? "link" : "input"} element:\n\n`;
+  let prompt = `Generate an aria-label for this icon-only ${violation.rule === "button-label" ? "button" : violation.rule === "link-label" ? "link" : "input"}:\n\n`;
+  if (iconName) prompt += `Icon component: ${iconName}\n`;
   prompt += `Element: ${element}\n`;
   prompt += `Component: ${context.componentName}\n`;
   if (context.route) prompt += `Route: ${context.route}\n`;
   if (context.nearbyHeadings.length > 0) prompt += `Nearby headings: ${context.nearbyHeadings.join(", ")}\n`;
   prompt += `Locale: ${config.locale}\n`;
-  prompt += `\nReturn ONLY the label text.`;
+  prompt += `\nReturn ONLY the action-oriented label (e.g. "Add to cart", "Visit Twitter").`;
 
   const result = await generate({ model, system: CODE_CONTEXT_SYSTEM, prompt });
 
@@ -199,12 +221,73 @@ async function resolveCodeContext(
   return result;
 }
 
+async function resolveMetadataTitle(
+  file: SourceFile,
+  violation: Violation,
+  model: LanguageModel,
+  config: ResolvedConfig,
+  cache: FsCache
+): Promise<string> {
+  const context = extractContext(file);
+
+  const contextStr = `next-metadata-title:${context.componentName}:${context.route}:${context.nearbyHeadings.join("|")}:${config.locale}`;
+  const cacheKey = FsCache.hashContent(Buffer.from(contextStr));
+
+  const cached = cache.get(cacheKey);
+  if (cached && cached.locale === config.locale) return cached.value;
+
+  let prompt = `Generate a page title for this Next.js page:\n\n`;
+  prompt += `Component: ${context.componentName}\n`;
+  if (context.route) prompt += `Route: ${context.route}\n`;
+  if (context.nearbyHeadings.length > 0)
+    prompt += `Headings on page: ${context.nearbyHeadings.join(", ")}\n`;
+  prompt += `Locale: ${config.locale}\n`;
+  prompt += `\nReturn ONLY the title text (e.g. "Home", "About Us", "Contact").`;
+
+  const result = await generate({
+    model,
+    system: METADATA_TITLE_SYSTEM,
+    prompt,
+  });
+
+  cache.set(cacheKey, {
+    value: result,
+    model: model.modelId,
+    locale: config.locale,
+    rule: "next-metadata-title",
+    generatedAt: new Date().toISOString(),
+  });
+  return result;
+}
+
 function findElement(file: SourceFile, line: number) {
   const elements = [
     ...file.getDescendantsOfKind(SyntaxKind.JsxOpeningElement),
     ...file.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement),
   ];
   return elements.find((el) => el.getStartLineNumber() === line);
+}
+
+function getIconNameFromViolation(project: Project, violation: Violation): string | undefined {
+  if (violation.rule !== "button-label" && violation.rule !== "link-label") return undefined;
+  const file = project.getSourceFile(violation.filePath);
+  if (!file) return undefined;
+  const el = findElement(file, violation.line);
+  if (!el) return undefined;
+  const parent = el.getParent();
+  if (!parent) return undefined;
+  const children = [
+    ...parent.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement),
+    ...parent.getDescendantsOfKind(SyntaxKind.JsxOpeningElement),
+  ];
+  for (const child of children) {
+    const tag = child.getTagNameNode().getText();
+    if (tag === "svg" || tag === "path" || tag === "rect") continue;
+    if (tag.endsWith("Icon")) return tag;
+    if (tag.length > 0 && tag[0] === tag[0].toUpperCase() && !["Image", "Link", "Svg"].includes(tag))
+      return tag;
+  }
+  return undefined;
 }
 
 function findProjectRoot(filePath: string): string {

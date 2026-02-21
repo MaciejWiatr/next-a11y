@@ -25,6 +25,7 @@ export type FixType =
   | "insert-attr"
   | "replace-attr"
   | "insert-element"
+  | "insert-metadata"
   | "wrap-element"
   | "remove-element";
 

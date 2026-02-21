@@ -97,6 +97,48 @@ describe("noPositiveTabindexRule", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0].element).toBe("input");
   });
+
+  it("should not report for tabIndex={1} (value 1 is positive)", () => {
+    const file = createSourceFile(`
+      export default function App() {
+        return <div tabIndex={1}>Content</div>;
+      }
+    `);
+    const violations = noPositiveTabindexRule.scan(file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toContain("1");
+  });
+
+  it("should not report for dynamic tabIndex expressions", () => {
+    const file = createSourceFile(`
+      export default function App() {
+        return <div tabIndex={index}>Content</div>;
+      }
+    `);
+    const violations = noPositiveTabindexRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("should report for tabIndex on custom components", () => {
+    const file = createSourceFile(`
+      export default function App() {
+        return <Card tabIndex={3}>Content</Card>;
+      }
+    `);
+    const violations = noPositiveTabindexRule.scan(file);
+    expect(violations).toHaveLength(1);
+  });
+
+  it("should handle very large tabIndex values", () => {
+    const file = createSourceFile(`
+      export default function App() {
+        return <div tabIndex={9999}>Content</div>;
+      }
+    `);
+    const violations = noPositiveTabindexRule.scan(file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toContain("9999");
+  });
 });
 
 describe("applyNoPositiveTabindexFix", () => {

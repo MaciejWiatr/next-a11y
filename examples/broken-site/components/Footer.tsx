@@ -1,3 +1,4 @@
+// Violations: emoji-alt (🔥, 🚀), link-noopener (target="_blank" without rel)
 export function Footer() {
   return (
     <footer>

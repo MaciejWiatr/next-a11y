@@ -1,3 +1,5 @@
+// Violations: input-label (inputs/textarea/select without labels)
+// Contact has metadata so no next-metadata-title
 export const metadata = { title: "Contact" };
 
 export default function ContactPage() {

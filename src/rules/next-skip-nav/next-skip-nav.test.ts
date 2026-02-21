@@ -135,4 +135,60 @@ describe("nextSkipNavRule", () => {
 
     expect(violations).toHaveLength(0);
   });
+
+  it("reports violation for nested layout paths", () => {
+    const file = createSourceFile(
+      `
+      export default function Layout({ children }: { children: React.ReactNode }) {
+        return <div>{children}</div>;
+      }
+    `,
+      "/app/dashboard/layout.tsx",
+    );
+    const violations = nextSkipNavRule.scan(file);
+    expect(violations).toHaveLength(1);
+  });
+
+  it("does not report for layout with self-closing skip link", () => {
+    const file = createSourceFile(`
+      export default function RootLayout({ children }: { children: React.ReactNode }) {
+        return (
+          <html lang="en">
+            <body>
+              <a href="#main-content" />
+              {children}
+            </body>
+          </html>
+        );
+      }
+    `);
+    const violations = nextSkipNavRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("does not report for layout.ts files (not .tsx/.jsx)", () => {
+    const file = createSourceFile(
+      `export default function Layout() { return null; }`,
+      "/app/layout.ts",
+    );
+    const violations = nextSkipNavRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("handles layout in locale segment path", () => {
+    const file = createSourceFile(
+      `
+      export default function Layout({ children }: { children: React.ReactNode }) {
+        return (
+          <html lang="en">
+            <body>{children}</body>
+          </html>
+        );
+      }
+    `,
+      "/app/[locale]/layout.tsx",
+    );
+    const violations = nextSkipNavRule.scan(file);
+    expect(violations).toHaveLength(1);
+  });
 });

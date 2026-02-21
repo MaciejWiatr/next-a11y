@@ -1,3 +1,5 @@
+"use client";
+// Violations: no-positive-tabindex (tabIndex={3}), no-div-interactive (div onClick)
 import Image from "next/image";
 
 export function ProductCard() {

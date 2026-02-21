@@ -1,3 +1,5 @@
+"use client";
+// Violations: button-label (icon-only), button-type (no type attribute)
 export function ThemeToggle() {
   const toggle = () => {};
 

@@ -1,3 +1,5 @@
+"use client";
+// Violations: button-label (icon-only button), input-label (input without label)
 export function SearchForm() {
   return (
     <form role="search">

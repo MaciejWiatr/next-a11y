@@ -1,9 +1,10 @@
-import type { SourceFile } from "ts-morph";
+import type { SourceFile, Node } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
 import { classifyAlt } from "./img-alt.classify.js";
 
-export const imgAltRule: Rule = {
+export function createImgAltRule(options: { fillAlt: boolean }): Rule {
+  return {
   id: "img-alt",
   type: "ai",
   scan(file: SourceFile): Violation[] {
@@ -53,7 +54,31 @@ export const imgAltRule: Rule = {
 
       const classification = classifyAlt(altValue, isExpression);
 
-      if (classification === "missing" || classification === "meaningless") {
+      // Dynamic expressions: only skip if inside array render (.map) or function call (i18n)
+      if (classification === "dynamic") {
+        const isTrustedDynamic =
+          isInArrayRender(el) ||
+          (altValue != null && isFunctionCallExpression(altValue));
+        if (isTrustedDynamic) continue;
+
+        // Standalone dynamic expression — flag as warning (no auto-fix)
+        violations.push({
+          rule: "img-alt",
+          filePath,
+          line: el.getStartLineNumber(),
+          column: el.getStart() - el.getStartLinePos(),
+          element: el.getText().slice(0, 80),
+          message: `Image has unverifiable dynamic alt: {${altValue}}`,
+        });
+        continue;
+      }
+
+      const shouldFlag =
+        classification === "missing" ||
+        classification === "meaningless" ||
+        (classification === "decorative" && options.fillAlt);
+
+      if (shouldFlag) {
         violations.push({
           rule: "img-alt",
           filePath,
@@ -63,12 +88,13 @@ export const imgAltRule: Rule = {
           message:
             classification === "missing"
               ? "Image is missing alt text"
-              : `Image has meaningless alt text: "${altValue}"`,
+              : classification === "decorative"
+                ? "Image has empty alt text (use --fill-alt to generate)"
+                : `Image has meaningless alt text: "${altValue}"`,
           fix: {
-            type: "insert-attr",
+            type: altAttr ? "replace-attr" : "insert-attr",
             attribute: "alt",
             value: async () => {
-              // This will be replaced with AI-generated text during the scan pipeline
               return `[AI-generated alt text placeholder]`;
             },
           },
@@ -78,7 +104,38 @@ export const imgAltRule: Rule = {
 
     return violations;
   },
-};
+  };
+}
+
+/**
+ * Check if a node is inside an array render callback (.map, .flatMap, .forEach).
+ */
+function isInArrayRender(node: Node): boolean {
+  let current: Node | undefined = node.getParent();
+  while (current) {
+    if (current.getKind() === SyntaxKind.CallExpression) {
+      const callExpr = current.asKind(SyntaxKind.CallExpression);
+      const exprText = callExpr?.getExpression()?.getText() ?? "";
+      if (
+        exprText.endsWith(".map") ||
+        exprText.endsWith(".flatMap") ||
+        exprText.endsWith(".forEach")
+      ) {
+        return true;
+      }
+    }
+    current = current.getParent();
+  }
+  return false;
+}
+
+/**
+ * Check if expression text is a function call (e.g. t('key'), intl.formatMessage(...)).
+ * Also matches ternaries and template literals as "intentional" expressions.
+ */
+function isFunctionCallExpression(exprText: string): boolean {
+  return exprText.includes("(") || exprText.includes("?") || exprText.includes("`");
+}
 
 function isNextImage(file: SourceFile): boolean {
   const imports = file.getImportDeclarations();

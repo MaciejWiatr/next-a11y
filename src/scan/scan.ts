@@ -71,7 +71,9 @@ export async function detect(
     }
   }
 
-  const rules = getRulesForConfig(config.rules, config.noAi);
+  const rules = getRulesForConfig(config.rules, config.noAi, {
+    fillAlt: config.fillAlt,
+  });
   const allViolations: Violation[] = [];
   let elementsScanned = 0;
 
@@ -160,7 +162,7 @@ export async function finalize(
   savePreviousScore(ctx.config.cache, score);
 
   return {
-    violations: ctx.violations,
+    violations: remainingViolations,
     filesScanned: ctx.filesScanned,
     elementsScanned: ctx.elementsScanned,
     score,

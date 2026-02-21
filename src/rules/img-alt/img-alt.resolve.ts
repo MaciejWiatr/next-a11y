@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as https from "node:https";
 import * as http from "node:http";
+import { SyntaxKind } from "ts-morph";
 import type { SourceFile, Project } from "ts-morph";
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif"];
@@ -87,8 +88,28 @@ export function resolveStaticImportPath(
     name = name.slice(0, -4);
   }
 
-  // Strip property access for dynamic patterns like `obj[key].src` → give up
-  if (name.includes("[") || name.includes("(")) {
+  // Handle dynamic access: `obj[key]` → resolve first value from `obj`
+  if (name.includes("[")) {
+    const baseName = name.split("[")[0];
+    if (baseName) {
+      return resolveFirstValueFromObject(baseName, file, projectRoot);
+    }
+    return undefined;
+  }
+
+  // Handle property access: obj.prop → resolve from param default or variable (e.g. product.image, PLACEHOLDER.hero)
+  if (name.includes(".") && !name.includes("(")) {
+    const parts = name.split(".");
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      const resolved =
+        resolveFromParamDefault(parts[0], parts[1], file) ??
+        resolveFromVariableDefault(parts[0], parts[1], file);
+      if (resolved) return resolved;
+    }
+  }
+
+  // Function calls — can't resolve
+  if (name.includes("(")) {
     return undefined;
   }
 
@@ -117,6 +138,134 @@ export function resolveStaticImportPath(
     }
   }
 
+  return undefined;
+}
+
+/**
+ * For `obj[key]` patterns, find the variable declaration of `obj`,
+ * extract the first property value, and resolve it through imports.
+ * e.g. `cpvCodeImages[code]` → find `cpvCodeImages = { "x": img_foo, ... }` → resolve `img_foo`
+ */
+function resolveFirstValueFromObject(
+  varName: string,
+  file: SourceFile,
+  projectRoot?: string
+): string | undefined {
+  const root = projectRoot ?? findProjectRootFromFile(file.getFilePath());
+  const project = file.getProject();
+
+  // Find variable declaration: `const cpvCodeImages = { ... }`
+  const varDecls = file.getDescendantsOfKind(SyntaxKind.VariableDeclaration);
+  for (const decl of varDecls) {
+    if (decl.getName() !== varName) continue;
+
+    const init = decl.getInitializer();
+    if (!init) continue;
+
+    // Object literal: `{ "key": value, ... }`
+    const objLiteral = init.asKind(SyntaxKind.ObjectLiteralExpression);
+    if (!objLiteral) continue;
+
+    const props = objLiteral.getProperties();
+    for (const prop of props) {
+      const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+      if (!propAssign) continue;
+
+      const valueNode = propAssign.getInitializer();
+      if (!valueNode) continue;
+
+      // The value is an identifier referencing an import (e.g., `img_03000000_1`)
+      const valueText = valueNode.getText();
+      const resolved = resolveStaticImportPath(valueText, file, root);
+      if (resolved) return resolved;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Resolve obj.prop from a function parameter's default value.
+ * e.g. product.image when param is product = { image: "/product.jpg", thumbnail: "/thumb.jpg" }
+ * Handles both simple params and destructured params ({ product = { ... } }).
+ */
+function resolveFromParamDefault(
+  paramName: string,
+  propName: string,
+  file: SourceFile
+): string | undefined {
+  const funcs = [
+    ...file.getDescendantsOfKind(SyntaxKind.FunctionDeclaration),
+    ...file.getDescendantsOfKind(SyntaxKind.ArrowFunction),
+    ...file.getDescendantsOfKind(SyntaxKind.FunctionExpression),
+  ];
+
+  for (const func of funcs) {
+    const params = func.getParameters();
+    for (const param of params) {
+      let init = param.getInitializer();
+
+      // Destructured param: { product = { image: "...", ... } }
+      const nameNode = param.getNameNode();
+      if (nameNode?.getKind() === SyntaxKind.ObjectBindingPattern) {
+        const pattern = nameNode.asKind(SyntaxKind.ObjectBindingPattern);
+        const elements = pattern?.getElements() ?? [];
+        for (const el of elements) {
+          if (el.getName() === paramName) {
+            init = el.getInitializer();
+            break;
+          }
+        }
+      } else if (param.getName() !== paramName) {
+        continue;
+      }
+
+      if (!init) continue;
+
+      const objLiteral = init.asKind(SyntaxKind.ObjectLiteralExpression);
+      if (!objLiteral) continue;
+
+      const prop = objLiteral.getProperty(propName);
+      if (!prop) continue;
+
+      const propInit = prop.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+      const strLit = propInit?.asKind(SyntaxKind.StringLiteral);
+      if (strLit) {
+        return strLit.getLiteralValue();
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Resolve obj.prop from a variable/const declaration with object literal.
+ * e.g. PLACEHOLDER.hero when const PLACEHOLDER = { hero: "https://...", ... }
+ */
+function resolveFromVariableDefault(
+  varName: string,
+  propName: string,
+  file: SourceFile
+): string | undefined {
+  const decls = file.getDescendantsOfKind(SyntaxKind.VariableDeclaration);
+  for (const decl of decls) {
+    if (decl.getName() !== varName) continue;
+
+    const init = decl.getInitializer();
+    if (!init) continue;
+
+    const objLiteral = init.asKind(SyntaxKind.ObjectLiteralExpression);
+    if (!objLiteral) continue;
+
+    const prop = objLiteral.getProperty(propName);
+    if (!prop) continue;
+
+    const propInit = prop.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+    const strLit = propInit?.asKind(SyntaxKind.StringLiteral);
+    if (strLit) {
+      return strLit.getLiteralValue();
+    }
+  }
   return undefined;
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "next-a11y",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "AI-powered accessibility codemod for Next.js",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -23,7 +23,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:example": "node scripts/test-example.mjs"
   },
   "keywords": [
     "next",
@@ -52,6 +53,7 @@
     "@ai-sdk/anthropic": ">=3.0.0",
     "@ai-sdk/google": ">=3.0.0",
     "@ai-sdk/openai": "3.0.30",
+    "@openrouter/ai-sdk-provider": ">=2.0.0",
     "ollama-ai-provider": ">=1.0.0"
   },
   "peerDependenciesMeta": {
@@ -62,6 +64,9 @@
       "optional": true
     },
     "@ai-sdk/google": {
+      "optional": true
+    },
+    "@openrouter/ai-sdk-provider": {
       "optional": true
     },
     "ollama-ai-provider": {

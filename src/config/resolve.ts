@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { A11yConfig, ResolvedConfig, ProviderName } from "./schema.js";
-import { DEFAULT_CONFIG, DEFAULT_RULES, PROVIDER_DEFAULTS } from "./schema.js";
+import { DEFAULT_CONFIG, DEFAULT_RULES, PROVIDER_DEFAULTS, PROVIDER_ENV } from "./schema.js";
 
 export interface CLIFlags {
   fix?: boolean;
@@ -47,7 +47,7 @@ export function resolveConfig(
 ): ResolvedConfig {
   const merged = deepMerge(DEFAULT_CONFIG, fileConfig);
 
-  const provider = (cliFlags.provider ?? merged.provider) as ProviderName | undefined;
+  const provider = (cliFlags.provider ?? merged.provider ?? detectProviderFromEnv()) as ProviderName | undefined;
   const model =
     cliFlags.model ??
     merged.model ??
@@ -68,6 +68,16 @@ export function resolveConfig(
     noAi: cliFlags.noAi ?? false,
     minScore: cliFlags.minScore,
   };
+}
+
+/**
+ * Auto-detect AI provider from environment variables.
+ */
+function detectProviderFromEnv(): ProviderName | undefined {
+  for (const [name, envVar] of Object.entries(PROVIDER_ENV)) {
+    if (envVar && process.env[envVar]) return name as ProviderName;
+  }
+  return undefined;
 }
 
 function deepMerge(target: A11yConfig, source: A11yConfig): A11yConfig {

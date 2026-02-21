@@ -96,6 +96,10 @@ async function resolveImgAlt(
   const el = findElement(file, violation.line);
   if (!el) return "";
 
+  // Find project root by walking up from the file
+  const filePath = file.getFilePath();
+  const projectRoot = findProjectRoot(filePath);
+
   // Get image source
   const srcAttr = el.getAttribute("src");
   let srcValue = "";
@@ -108,15 +112,11 @@ async function resolveImgAlt(
       const expr = init.asKind(SyntaxKind.JsxExpression)?.getExpression();
       if (expr) {
         const importName = expr.getText();
-        const importPath = resolveStaticImportPath(importName, file);
+        const importPath = resolveStaticImportPath(importName, file, projectRoot);
         srcValue = importPath ?? importName;
       }
     }
   }
-
-  // Find project root by walking up from the file
-  const filePath = file.getFilePath();
-  const projectRoot = findProjectRoot(filePath);
 
   const imageSource = await resolveImageSource(srcValue, file, projectRoot);
   const context = extractContext(file);

@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { config as dotenvConfig } from "dotenv";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { loadConfigFile, resolveConfig } from "../config/resolve.js";
@@ -17,6 +20,24 @@ export function registerScanCommand(program: Command): void {
     .option("--model <model>", "Override AI model")
     .option("--min-score <score>", "Minimum score threshold (exit code 1 if below)", parseInt)
     .action(async (targetPath: string, options: any) => {
+      // Also load .env files from the scan target directory
+      let envDir = path.resolve(targetPath);
+      if (fs.existsSync(envDir) && fs.statSync(envDir).isFile()) {
+        envDir = path.dirname(envDir);
+      }
+      // Walk up to find .env files (e.g., scanning a subdirectory of a project)
+      let searchDir = envDir;
+      while (searchDir !== path.dirname(searchDir)) {
+        for (const envFile of [".env", ".env.local"]) {
+          const envPath = path.join(searchDir, envFile);
+          if (fs.existsSync(envPath)) {
+            dotenvConfig({ path: envPath, override: false, quiet: true });
+          }
+        }
+        if (fs.existsSync(path.join(searchDir, "package.json"))) break;
+        searchDir = path.dirname(searchDir);
+      }
+
       const fileConfig = await loadConfigFile(process.cwd());
       const config = resolveConfig(fileConfig, {
         fix: options.fix,

@@ -52,7 +52,9 @@ export async function detect(
     config.scanner.exclude
   );
 
+  const tsconfigPath = path.join(absPath, "tsconfig.json");
   const project = new Project({
+    tsConfigFilePath: fs.existsSync(tsconfigPath) ? tsconfigPath : undefined,
     skipAddingFilesFromTsConfig: true,
     compilerOptions: {
       jsx: 4, // JsxEmit.ReactJSX

@@ -4,10 +4,10 @@ import { registerScanCommand } from "./scan-command.js";
 import { registerInitCommand } from "./init-command.js";
 import { registerCacheCommand } from "./cache-command.js";
 
-config({ path: ".env", override: false });
-config({ path: ".env.local", override: true });
-config({ path: ".env.development", override: true });
-config({ path: ".env.development.local", override: true });
+config({ path: ".env", override: false, quiet: true });
+config({ path: ".env.local", override: true, quiet: true });
+config({ path: ".env.development", override: true, quiet: true });
+config({ path: ".env.development.local", override: true, quiet: true });
 
 const program = new Command();
 

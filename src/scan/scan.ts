@@ -1,36 +1,38 @@
 import * as path from "node:path";
-import { Project } from "ts-morph";
+import { Project, type SourceFile } from "ts-morph";
 import type { ResolvedConfig } from "../config/schema.js";
 import type { Violation, ScanResult } from "./types.js";
 import { discoverFiles } from "./glob.js";
 import { getRulesForConfig } from "../rules/index.js";
 import { computeScore, loadPreviousScore, savePreviousScore } from "./score.js";
 import { applyFix } from "../apply/apply.js";
+import { resolveAiFixes } from "../ai/resolve-fixes.js";
 
-export async function scan(
+export interface ScanContext {
+  project: Project;
+  violations: Violation[];
+  filesScanned: number;
+  elementsScanned: number;
+  rules: ReturnType<typeof getRulesForConfig>;
+  config: ResolvedConfig;
+}
+
+/**
+ * Phase 1: Discover files, parse AST, detect violations.
+ * Does NOT apply any fixes — returns context for the caller to handle.
+ */
+export async function detect(
   targetPath: string,
   config: ResolvedConfig
-): Promise<ScanResult> {
+): Promise<ScanContext> {
   const absPath = path.resolve(targetPath);
 
-  // 1. Discover files
   const files = await discoverFiles(
     absPath,
     config.scanner.include,
     config.scanner.exclude
   );
 
-  if (files.length === 0) {
-    return {
-      violations: [],
-      filesScanned: 0,
-      elementsScanned: 0,
-      score: 100,
-      fixedCount: 0,
-    };
-  }
-
-  // 2. Create ts-morph project
   const project = new Project({
     skipAddingFilesFromTsConfig: true,
     compilerOptions: {
@@ -40,7 +42,6 @@ export async function scan(
     },
   });
 
-  // Add discovered files
   for (const filePath of files) {
     try {
       project.addSourceFileAtPath(filePath);
@@ -49,10 +50,7 @@ export async function scan(
     }
   }
 
-  // 3. Get applicable rules
   const rules = getRulesForConfig(config.rules, config.noAi);
-
-  // 4. Run rules on each file
   const allViolations: Violation[] = [];
   let elementsScanned = 0;
 
@@ -62,58 +60,114 @@ export async function scan(
         const violations = rule.scan(sourceFile);
         allViolations.push(...violations);
       } catch {
-        // Skip rule errors for individual files
+        // Skip rule errors
       }
     }
-    // Rough element count
     elementsScanned += sourceFile.getDescendants().length;
   }
 
-  // 5. Apply fixes if requested
-  let fixedCount = 0;
-
-  if (config.fix) {
-    for (const violation of allViolations) {
-      if (!violation.fix) continue;
-
-      // Skip AI fixes when --no-ai
-      const rule = rules.find((r) => r.id === violation.rule);
-      if (config.noAi && rule?.type === "ai") continue;
-
-      try {
-        const sourceFile = project.getSourceFile(violation.filePath);
-        if (!sourceFile) continue;
-
-        const applied = await applyFix(sourceFile, violation);
-        if (applied) fixedCount++;
-      } catch {
-        // Skip individual fix errors
-      }
-    }
-
-    // Save modified files
-    if (fixedCount > 0) {
-      await project.save();
-    }
-  }
-
-  // 6. Compute score
-  const remainingViolations = config.fix
-    ? allViolations.filter((v) => !v.fix || (config.noAi && rules.find((r) => r.id === v.rule)?.type === "ai"))
-    : allViolations;
-
-  const score = computeScore(remainingViolations);
-  const previousScore = loadPreviousScore(config.cache);
-
-  // Save current score
-  savePreviousScore(config.cache, score);
-
   return {
+    project,
     violations: allViolations,
     filesScanned: files.length,
     elementsScanned,
+    rules,
+    config,
+  };
+}
+
+/**
+ * Phase 1.5: Resolve AI fix values (call AI provider, check cache).
+ * Mutates violation.fix.value from async function to resolved string.
+ */
+export async function resolveAi(
+  ctx: ScanContext,
+  onProgress?: (resolved: number, total: number, violation: Violation, result: string) => void
+): Promise<void> {
+  if (ctx.config.noAi || !ctx.config.provider) return;
+
+  await resolveAiFixes({
+    config: ctx.config,
+    project: ctx.project,
+    violations: ctx.violations,
+    onProgress,
+  });
+}
+
+/**
+ * Phase 2: Apply a single fix. Returns true if successful.
+ */
+export async function fixViolation(
+  ctx: ScanContext,
+  violation: Violation
+): Promise<boolean> {
+  if (!violation.fix) return false;
+
+  const rule = ctx.rules.find((r) => r.id === violation.rule);
+  if (ctx.config.noAi && rule?.type === "ai") return false;
+
+  try {
+    const sourceFile = ctx.project.getSourceFile(violation.filePath);
+    if (!sourceFile) return false;
+    return await applyFix(sourceFile, violation);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Phase 3: Save all modified files and compute final result.
+ */
+export async function finalize(
+  ctx: ScanContext,
+  fixedCount: number
+): Promise<ScanResult> {
+  if (fixedCount > 0) {
+    await ctx.project.save();
+  }
+
+  const remainingViolations = ctx.config.fix
+    ? ctx.violations.filter((v) => {
+        if (!v.fix) return true;
+        if (ctx.config.noAi && ctx.rules.find((r) => r.id === v.rule)?.type === "ai") return true;
+        return false;
+      })
+    : ctx.violations;
+
+  const score = computeScore(remainingViolations);
+  const previousScore = loadPreviousScore(ctx.config.cache);
+  savePreviousScore(ctx.config.cache, score);
+
+  return {
+    violations: ctx.violations,
+    filesScanned: ctx.filesScanned,
+    elementsScanned: ctx.elementsScanned,
     score,
     previousScore,
     fixedCount,
   };
+}
+
+/**
+ * All-in-one scan (non-interactive). Detect + resolve AI + fix all + finalize.
+ */
+export async function scan(
+  targetPath: string,
+  config: ResolvedConfig
+): Promise<ScanResult> {
+  const ctx = await detect(targetPath, config);
+
+  if (config.fix && !config.noAi) {
+    await resolveAi(ctx);
+  }
+
+  let fixedCount = 0;
+  if (config.fix) {
+    for (const violation of ctx.violations) {
+      const applied = await fixViolation(ctx, violation);
+      if (applied) fixedCount++;
+    }
+  }
+
+  return finalize(ctx, fixedCount);
 }

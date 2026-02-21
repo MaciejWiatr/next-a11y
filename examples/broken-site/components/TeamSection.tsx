@@ -5,7 +5,7 @@ export function TeamSection() {
     <section>
       <h2>Our Team</h2>
       <Image src="/team-photo.jpg" alt="photo" width={400} height={300} />
-      <Image src="/product-screenshot.png" alt="IMG_4232.jpg" width={600} height={400} />
+      <Image src="/product.jpg" alt="IMG_4232.jpg" width={600} height={400} />
     </section>
   );
 }

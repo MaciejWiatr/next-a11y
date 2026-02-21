@@ -1,7 +1,9 @@
 import type { Command } from "commander";
+import pc from "picocolors";
 import { loadConfigFile, resolveConfig } from "../config/resolve.js";
-import { scan } from "../scan/scan.js";
-import { formatReport } from "./format.js";
+import { detect, resolveAi, fixViolation, finalize, scan } from "../scan/scan.js";
+import { formatReport, formatFixApplied } from "./format.js";
+import { interactiveReview } from "./interactive.js";
 
 export function registerScanCommand(program: Command): void {
   program
@@ -25,8 +27,64 @@ export function registerScanCommand(program: Command): void {
         minScore: options.minScore,
       });
 
-      const result = await scan(targetPath, config);
-      console.log(formatReport(result, config.fix));
+      let result;
+
+      if (config.interactive && config.fix) {
+        // Interactive mode: detect → resolve AI → review each fix
+        const ctx = await detect(targetPath, config);
+
+        await resolveAi(ctx, (resolved, total, _violation, aiResult) => {
+          console.log(pc.dim(`  AI: resolved ${resolved}/${total} → "${aiResult}"`));
+        });
+
+        const { applied } = await interactiveReview(
+          ctx.violations,
+          async (violation) => {
+            await fixViolation(ctx, violation);
+          }
+        );
+
+        result = await finalize(ctx, applied);
+        console.log(formatReport(result, true));
+      } else if (config.fix) {
+        // Auto-fix mode: detect → resolve AI → fix all → list
+        const ctx = await detect(targetPath, config);
+
+        await resolveAi(ctx, (resolved, total, _violation, aiResult) => {
+          console.log(pc.dim(`  AI: resolved ${resolved}/${total} → "${aiResult}"`));
+        });
+
+        let fixedCount = 0;
+        const fixed: { filePath: string; line: number; rule: string; message: string }[] = [];
+
+        for (const violation of ctx.violations) {
+          const applied = await fixViolation(ctx, violation);
+          if (applied) {
+            fixedCount++;
+            fixed.push({
+              filePath: violation.filePath,
+              line: violation.line,
+              rule: violation.rule,
+              message: violation.message,
+            });
+          }
+        }
+
+        result = await finalize(ctx, fixedCount);
+
+        if (fixed.length > 0) {
+          console.log(pc.bold("\n  Fixes applied:\n"));
+          for (const f of fixed) {
+            console.log(formatFixApplied(f.filePath, f.line, f.rule, f.message));
+          }
+        }
+
+        console.log(formatReport(result, true));
+      } else {
+        // Report-only mode
+        result = await scan(targetPath, config);
+        console.log(formatReport(result, false));
+      }
 
       // CI gate
       if (config.minScore !== undefined && result.score < config.minScore) {

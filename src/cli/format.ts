@@ -171,6 +171,16 @@ function formatRuleDescription(rule: RuleId): string {
   return descriptions[rule] ?? rule;
 }
 
+export function formatFixApplied(
+  filePath: string,
+  line: number,
+  rule: string,
+  message: string
+): string {
+  const shortPath = filePath.replace(process.cwd() + "/", "");
+  return `  ${pc.green("fixed")}  ${pc.dim(shortPath + ":" + line)}  [${rule}] ${message}`;
+}
+
 export function formatViolationDetail(v: Violation, index: number, total: number): string {
   const lines: string[] = [];
   lines.push("");

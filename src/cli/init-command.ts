@@ -4,6 +4,7 @@ import * as readline from "node:readline";
 import { execSync } from "node:child_process";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { detect as detectPM, resolveCommand } from "package-manager-detector";
 import { PROVIDER_ENV, type ProviderName } from "../config/schema.js";
 
 interface InitOptions {
@@ -17,7 +18,7 @@ export function registerInitCommand(program: Command): void {
     .command("init")
     .description("Initialize next-a11y configuration")
     .action(async () => {
-      console.log(pc.bold("\n  next-a11y v0.1.0 — Setup\n"));
+      console.log(pc.bold("\n  next-a11y v0.1.4 — Setup\n"));
 
       const options = await promptInitOptions();
 
@@ -46,15 +47,9 @@ export function registerInitCommand(program: Command): void {
         };
         const pkg = pkgMap[options.provider];
         if (pkg) {
-          const pm = detectPackageManager(cwd);
-          const installCmd =
-            pm === "yarn"
-              ? `yarn add ${pkg}`
-              : pm === "pnpm"
-                ? `pnpm add ${pkg}`
-                : pm === "bun"
-                  ? `bun add ${pkg}`
-                  : `npm install ${pkg}`;
+          const pm = await detectPM({ cwd });
+          const resolved = resolveCommand(pm?.agent ?? "npm", "add", [pkg]);
+          const installCmd = resolved ? `${resolved.command} ${resolved.args.join(" ")}` : `npm install ${pkg}`;
 
           try {
             console.log(pc.dim(`  Running: ${installCmd}`));
@@ -161,13 +156,6 @@ function promptYesNo(question: string): Promise<boolean> {
       resolve(normalized !== "n" && normalized !== "no");
     });
   });
-}
-
-function detectPackageManager(cwd: string): "npm" | "yarn" | "pnpm" | "bun" {
-  if (fs.existsSync(path.join(cwd, "bun.lock"))) return "bun";
-  if (fs.existsSync(path.join(cwd, "pnpm-lock.yaml"))) return "pnpm";
-  if (fs.existsSync(path.join(cwd, "yarn.lock"))) return "yarn";
-  return "npm";
 }
 
 function generateConfig(provider: ProviderName | "none", include: string[]): string {

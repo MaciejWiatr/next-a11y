@@ -25,7 +25,7 @@ export function formatReport(result: ScanResult, fix: boolean): string {
   const lines: string[] = [];
 
   lines.push("");
-  lines.push(pc.bold(`  next-a11y v0.1.0`));
+  lines.push(pc.bold(`  next-a11y v0.1.4`));
   lines.push(
     `  Scanned ${result.filesScanned} files`
   );

@@ -1,0 +1,69 @@
+{
+  "name": "next-a11y",
+  "version": "0.1.0",
+  "description": "AI-powered accessibility codemod for Next.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "next-a11y": "./bin/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "next",
+    "nextjs",
+    "a11y",
+    "accessibility",
+    "wcag",
+    "codemod"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ai": "^4.0.0",
+    "commander": "^12.0.0",
+    "dotenv": "^17.3.1",
+    "picocolors": "^1.1.0",
+    "ts-morph": "^24.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@ai-sdk/anthropic": ">=1.0.0",
+    "@ai-sdk/google": ">=1.0.0",
+    "@ai-sdk/openai": ">=1.0.0",
+    "ollama-ai-provider": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/openai": {
+      "optional": true
+    },
+    "@ai-sdk/anthropic": {
+      "optional": true
+    },
+    "@ai-sdk/google": {
+      "optional": true
+    },
+    "ollama-ai-provider": {
+      "optional": true
+    }
+  }
+}

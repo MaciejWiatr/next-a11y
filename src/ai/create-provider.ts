@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+import * as path from "node:path";
 import type { LanguageModel } from "ai";
 import type { ProviderName } from "../config/schema.js";
 
@@ -21,9 +23,15 @@ export function createProvider(
 ): LanguageModel {
   const pkg = PROVIDER_PACKAGES[provider];
 
+  // Resolve from the user's project directory, not from next-a11y's install location.
+  // This is needed when running via bunx/npx where next-a11y is in a temp cache.
+  const projectRequire = createRequire(
+    path.resolve(process.cwd(), "package.json")
+  );
+
   let mod: any;
   try {
-    mod = require(pkg);
+    mod = projectRequire(pkg);
   } catch {
     throw new Error(
       `AI provider "${provider}" requires the "${pkg}" package.\n` +

@@ -1,5 +1,6 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
-import { Project, type SourceFile } from "ts-morph";
+import { Project } from "ts-morph";
 import type { ResolvedConfig } from "../config/schema.js";
 import type { Violation, ScanResult } from "./types.js";
 import { discoverFiles } from "./glob.js";
@@ -18,6 +19,24 @@ export interface ScanContext {
 }
 
 /**
+ * Resolve and validate the target path. Returns absolute path to a directory.
+ */
+function resolveTargetPath(targetPath: string): string {
+  const absPath = path.resolve(targetPath);
+
+  if (!fs.existsSync(absPath)) {
+    throw new Error(`Path does not exist: ${absPath}`);
+  }
+
+  const stat = fs.statSync(absPath);
+  if (stat.isFile()) {
+    return path.dirname(absPath);
+  }
+
+  return absPath;
+}
+
+/**
  * Phase 1: Discover files, parse AST, detect violations.
  * Does NOT apply any fixes — returns context for the caller to handle.
  */
@@ -25,7 +44,7 @@ export async function detect(
   targetPath: string,
   config: ResolvedConfig
 ): Promise<ScanContext> {
-  const absPath = path.resolve(targetPath);
+  const absPath = resolveTargetPath(targetPath);
 
   const files = await discoverFiles(
     absPath,

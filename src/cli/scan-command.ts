@@ -29,6 +29,8 @@ export function registerScanCommand(program: Command): void {
 
       let result;
 
+      try {
+
       if (config.interactive && config.fix) {
         // Interactive mode: detect → resolve AI → review each fix
         const ctx = await detect(targetPath, config);
@@ -91,6 +93,11 @@ export function registerScanCommand(program: Command): void {
         console.error(
           `  Score ${result.score} is below minimum threshold ${config.minScore}`
         );
+        process.exit(1);
+      }
+
+      } catch (err: any) {
+        console.error(pc.red(`\n  Error: ${err.message}\n`));
         process.exit(1);
       }
     });

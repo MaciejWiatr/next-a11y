@@ -73,6 +73,7 @@ export async function detect(
 
   const rules = getRulesForConfig(config.rules, config.noAi, {
     fillAlt: config.fillAlt,
+    locale: config.locale,
   });
   const allViolations: Violation[] = [];
   let elementsScanned = 0;
@@ -107,7 +108,7 @@ export async function resolveAi(
   ctx: ScanContext,
   onProgress?: (resolved: number, total: number, violation: Violation, result: string) => void
 ): Promise<void> {
-  if (ctx.config.noAi || !ctx.config.provider) return;
+  if (ctx.config.noAi) return;
 
   await resolveAiFixes({
     config: ctx.config,
@@ -115,6 +116,66 @@ export async function resolveAi(
     violations: ctx.violations,
     onProgress,
   });
+}
+
+export type FixedViolation = {
+  filePath: string;
+  line: number;
+  rule: string;
+  message: string;
+  fixAttribute?: string;
+  fixType?: string;
+  fixValue?: string;
+  fixElement?: string;
+};
+
+/**
+ * Apply fixes concurrently (per-file parallel, sequential within file).
+ * Groups violations by file, applies bottom-to-top within each file to avoid
+ * position shifts, runs file groups in parallel via Promise.all.
+ */
+export async function applyAllFixes(
+  ctx: ScanContext,
+  violations: Violation[]
+): Promise<{ fixedCount: number; fixed: FixedViolation[] }> {
+  const byFile = new Map<string, Violation[]>();
+  for (const v of violations) {
+    if (!v.fix) continue;
+    const rule = ctx.rules.find((r) => r.id === v.rule);
+    if (ctx.config.noAi && rule?.type === "ai") continue;
+    const list = byFile.get(v.filePath) ?? [];
+    list.push(v);
+    byFile.set(v.filePath, list);
+  }
+
+  const results = await Promise.all(
+    Array.from(byFile.values()).map(async (viols) => {
+      // Sort by line descending so edits don't invalidate positions
+      viols.sort((a, b) => b.line - a.line);
+      const applied: FixedViolation[] = [];
+      for (const v of viols) {
+        const ok = await fixViolation(ctx, v);
+        if (ok) {
+          const value =
+            typeof v.fix?.value === "string" ? v.fix.value : undefined;
+          applied.push({
+            filePath: v.filePath,
+            line: v.line,
+            rule: v.rule,
+            message: v.message,
+            fixAttribute: v.fix?.attribute,
+            fixType: v.fix?.type,
+            fixValue: value,
+            fixElement: v.element,
+          });
+        }
+      }
+      return applied;
+    })
+  );
+
+  const fixed = results.flat();
+  return { fixedCount: fixed.length, fixed };
 }
 
 /**
@@ -186,10 +247,8 @@ export async function scan(
 
   let fixedCount = 0;
   if (config.fix) {
-    for (const violation of ctx.violations) {
-      const applied = await fixViolation(ctx, violation);
-      if (applied) fixedCount++;
-    }
+    const { fixedCount: n } = await applyAllFixes(ctx, ctx.violations);
+    fixedCount = n;
   }
 
   return finalize(ctx, fixedCount);

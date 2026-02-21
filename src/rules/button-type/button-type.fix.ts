@@ -4,7 +4,7 @@ import type { Violation } from "../../scan/types.js";
 
 /**
  * Applies the button-type fix by inserting `type="button"` on the
- * `<button>` element identified by the violation's line number.
+ * `<button>` or custom Button component identified by the violation's line number.
  */
 export function applyButtonTypeFix(
   file: SourceFile,
@@ -24,7 +24,10 @@ export function applyButtonTypeFix(
 
   for (const element of allElements) {
     const tagName = element.getTagNameNode().getText();
-    if (tagName !== "button") continue;
+    const isNativeButton = tagName === "button";
+    const isCustomButton =
+      tagName[0] === tagName[0].toUpperCase() && /button/i.test(tagName);
+    if (!isNativeButton && !isCustomButton) continue;
 
     const { line } = file.getLineAndColumnAtPos(element.getStart());
     if (line !== targetLine) continue;

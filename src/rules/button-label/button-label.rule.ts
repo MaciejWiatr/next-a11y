@@ -1,9 +1,12 @@
 import type { SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
-import { ICON_LABEL_OVERRIDES } from "./icon-name-map.js";
+import { getIconLabel, getGenericLabel } from "./icon-name-map.js";
 
-export const buttonLabelRule: Rule = {
+export function createButtonLabelRule(options: { locale?: string }): Rule {
+  const locale = options.locale ?? "en";
+
+  return {
   id: "button-label",
   type: "ai",
   scan(file: SourceFile): Violation[] {
@@ -83,11 +86,11 @@ export const buttonLabelRule: Rule = {
             if (nestedText.trim().length > 0) {
               return nestedText.trim();
             }
-            // Fallback heuristic from icon name
+            // Fallback heuristic from icon name (locale-aware)
             if (iconName) {
-              return iconNameToLabel(iconName);
+              return getIconLabel(iconName, locale);
             }
-            return "Button";
+            return getGenericLabel("Button", locale);
           },
         },
       });
@@ -96,6 +99,7 @@ export const buttonLabelRule: Rule = {
     return violations;
   },
 };
+}
 
 function getNestedTextContent(buttonElement: { getDescendantsOfKind: (k: typeof SyntaxKind.JsxText) => { getText: () => string }[] }): string {
   const textNodes = buttonElement.getDescendantsOfKind(SyntaxKind.JsxText);
@@ -138,14 +142,3 @@ function isUpperCase(ch: string): boolean {
   return ch === ch.toUpperCase() && ch !== ch.toLowerCase();
 }
 
-function iconNameToLabel(iconName: string): string {
-  if (ICON_LABEL_OVERRIDES[iconName]) return ICON_LABEL_OVERRIDES[iconName];
-
-  // Generic: RemoveCircleIcon → "Remove circle", SearchIcon → "Search"
-  const name = iconName
-    .replace(/Icon$/, "")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .toLowerCase();
-
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}

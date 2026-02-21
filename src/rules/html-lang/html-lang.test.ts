@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { Project } from "ts-morph";
-import { htmlLangRule } from "./html-lang.rule.js";
+import { createHtmlLangRule } from "./html-lang.rule.js";
 import { applyHtmlLangFix } from "./html-lang.fix.js";
+
+const htmlLangRule = createHtmlLangRule({ locale: "en" });
 
 function createSourceFile(code: string, filePath = "/app/layout.tsx") {
   const project = new Project({ useInMemoryFileSystem: true });
@@ -199,6 +201,18 @@ describe("applyHtmlLangFix", () => {
 
     const updatedText = file.getFullText();
     expect(updatedText).toContain('lang="fr"');
+  });
+
+  it("uses locale from rule options", () => {
+    const plRule = createHtmlLangRule({ locale: "pl" });
+    const file = createSourceFile(
+      `export default function RootLayout() {
+  return <html><body>Hello</body></html>;
+}`,
+    );
+    const violations = plRule.scan(file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].fix?.value).toBe("pl");
   });
 
   it("produces valid JSX after fix is applied", () => {

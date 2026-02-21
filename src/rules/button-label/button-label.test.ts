@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Project } from "ts-morph";
-import { buttonLabelRule } from "./button-label.rule.js";
+import { createButtonLabelRule } from "./button-label.rule.js";
+
+const buttonLabelRule = createButtonLabelRule({ locale: "en" });
 
 function createFile(code: string) {
   const project = new Project({ useInMemoryFileSystem: true });
@@ -139,5 +141,14 @@ describe("button-label rule", () => {
     expect(violations).toHaveLength(1);
     const value = await (violations[0].fix!.value as Function)();
     expect(value).toBe("Button");
+  });
+
+  it("uses locale for icon label fallback", async () => {
+    const plRule = createButtonLabelRule({ locale: "pl" });
+    const file = createFile(`<button><CartIcon /></button>`);
+    const violations = plRule.scan(file);
+    expect(violations).toHaveLength(1);
+    const value = await (violations[0].fix!.value as Function)();
+    expect(value).toBe("Dodaj do koszyka");
   });
 });

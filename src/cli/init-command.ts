@@ -50,7 +50,7 @@ export function registerInitCommand(program: Command): void {
         const pkg = pkgMap[options.provider];
         if (pkg) {
           const pm = await detectPM({ cwd });
-          const resolved = resolveCommand(pm?.agent ?? "npm", "add", [pkg]);
+          const resolved = resolveCommand(pm?.agent ?? "npm", "add", ["-D", pkg]);
           const installCmd = resolved ? `${resolved.command} ${resolved.args.join(" ")}` : `npm install ${pkg}`;
 
           try {
@@ -90,7 +90,7 @@ export function registerInitCommand(program: Command): void {
         console.log(`    1. Ensure Ollama is running locally`);
         console.log(`    2. Run: ${pc.bold("npx next-a11y scan ./src")}`);
       } else {
-        console.log(`    1. Run: ${pc.bold("npx next-a11y scan ./src --no-ai")}`);
+        console.log(`    1. Run: ${pc.bold("npx next-a11y scan ./src --no-ai")} ${pc.dim("(not recommended for best results)")}`);
       }
       console.log("");
     });

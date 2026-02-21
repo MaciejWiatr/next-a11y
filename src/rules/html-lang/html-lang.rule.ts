@@ -1,11 +1,14 @@
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
 
-export const htmlLangRule: Rule = {
-  id: "html-lang",
-  type: "deterministic",
+export function createHtmlLangRule(options: { locale?: string }): Rule {
+  const locale = options.locale ?? "en";
 
-  scan(file): Violation[] {
+  return {
+    id: "html-lang",
+    type: "deterministic",
+
+    scan(file): Violation[] {
     const filePath = file.getFilePath();
 
     // Only check root layout files and _document files
@@ -42,7 +45,7 @@ export const htmlLangRule: Rule = {
             fix: {
               type: "insert-attr",
               attribute: "lang",
-              value: "en",
+              value: locale,
             },
           });
         }
@@ -76,7 +79,7 @@ export const htmlLangRule: Rule = {
             fix: {
               type: "insert-attr",
               attribute: "lang",
-              value: "en",
+              value: locale,
             },
           });
         }
@@ -86,6 +89,7 @@ export const htmlLangRule: Rule = {
     return violations;
   },
 };
+}
 
 function isRootLayoutOrDocument(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, "/");

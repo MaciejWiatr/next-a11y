@@ -29,6 +29,7 @@ export interface ResolvedConfig {
   interactive: boolean;
   noAi: boolean;
   fillAlt: boolean;
+  quiet: boolean;
   minScore?: number;
 }
 

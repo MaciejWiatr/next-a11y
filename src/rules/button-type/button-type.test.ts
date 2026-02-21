@@ -86,7 +86,7 @@ describe("buttonTypeRule", () => {
     expect(violations).toHaveLength(0);
   });
 
-  it("reports a warning with no fix for custom Button components", () => {
+  it("reports a violation with fix for custom Button components", () => {
     const file = createSourceFile(`
       export default function App() {
         return <Button>Click</Button>;
@@ -96,11 +96,14 @@ describe("buttonTypeRule", () => {
     const violations = buttonTypeRule.scan(file);
     expect(violations).toHaveLength(1);
     expect(violations[0].element).toBe("<Button>");
-    expect(violations[0].fix).toBeUndefined();
+    expect(violations[0].fix).toBeDefined();
+    expect(violations[0].fix?.type).toBe("insert-attr");
+    expect(violations[0].fix?.attribute).toBe("type");
+    expect(violations[0].fix?.value).toBe("button");
     expect(violations[0].message).toContain("Custom component");
   });
 
-  it("reports a warning with no fix for IconButton components", () => {
+  it("reports a violation with fix for IconButton components", () => {
     const file = createSourceFile(`
       export default function App() {
         return <IconButton />;
@@ -110,7 +113,8 @@ describe("buttonTypeRule", () => {
     const violations = buttonTypeRule.scan(file);
     expect(violations).toHaveLength(1);
     expect(violations[0].element).toBe("<IconButton>");
-    expect(violations[0].fix).toBeUndefined();
+    expect(violations[0].fix).toBeDefined();
+    expect(violations[0].fix?.value).toBe("button");
   });
 
   it("does not report for custom Button with type attribute", () => {
@@ -228,5 +232,38 @@ describe("applyButtonTypeFix", () => {
     // Re-scan: only the second button should still violate
     const remaining = buttonTypeRule.scan(file);
     expect(remaining).toHaveLength(1);
+  });
+
+  it("inserts type=\"button\" on custom Button component", () => {
+    const file = createSourceFile(`
+      export default function App() {
+        return <Button>Click</Button>;
+      }
+    `);
+
+    const violations = buttonTypeRule.scan(file);
+    expect(violations).toHaveLength(1);
+
+    applyButtonTypeFix(file, violations[0]);
+
+    const updatedText = file.getFullText();
+    expect(updatedText).toContain('<Button type="button">');
+    expect(updatedText).toContain("Click</Button>");
+  });
+
+  it("inserts type=\"button\" on self-closing IconButton component", () => {
+    const file = createSourceFile(`
+      export default function App() {
+        return <IconButton />;
+      }
+    `);
+
+    const violations = buttonTypeRule.scan(file);
+    expect(violations).toHaveLength(1);
+
+    applyButtonTypeFix(file, violations[0]);
+
+    const updatedText = file.getFullText();
+    expect(updatedText).toContain('<IconButton type="button" />');
   });
 });

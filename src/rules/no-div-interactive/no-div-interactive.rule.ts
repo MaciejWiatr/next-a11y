@@ -4,6 +4,21 @@ import type { Rule, Violation } from "../../scan/types.js";
 
 const INTERACTIVE_TAGS = ["div", "span"];
 
+function getElementText(
+  element: import("ts-morph").JsxOpeningElement | import("ts-morph").JsxSelfClosingElement
+): string {
+  if (element.getKind() === SyntaxKind.JsxSelfClosingElement) return "";
+  const parent = element.getParentIfKind(SyntaxKind.JsxElement);
+  if (!parent) return "";
+  return parent
+    .getJsxChildren()
+    .map((c) => c.getText())
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 40);
+}
+
 function hasAttribute(
   element: { getAttributes(): import("ts-morph").JsxAttributeLike[] },
   name: string,
@@ -35,14 +50,15 @@ export const noDivInteractiveRule: Rule = {
 
       const { line, column } = file.getLineAndColumnAtPos(element.getStart());
 
+      const text = getElementText(element);
+      const textSuffix = text ? `: "${text}${text.length >= 40 ? "…" : ""}"` : "";
       violations.push({
         rule: "no-div-interactive",
         filePath,
         line,
         column,
         element: `<${tagName}>`,
-        message:
-          "Interactive <div> should be a <button> or have role and tabIndex",
+        message: `Interactive <${tagName}> should be <button> or have role+tabIndex${textSuffix}`,
       });
     }
 
@@ -64,8 +80,7 @@ export const noDivInteractiveRule: Rule = {
         line,
         column,
         element: `<${tagName}>`,
-        message:
-          "Interactive <div> should be a <button> or have role and tabIndex",
+        message: `Interactive <${tagName}> should be <button> or have role+tabIndex`,
       });
     }
 

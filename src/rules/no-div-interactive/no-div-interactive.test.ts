@@ -16,9 +16,8 @@ describe("no-div-interactive", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0].rule).toBe("no-div-interactive");
     expect(violations[0].element).toBe("<div>");
-    expect(violations[0].message).toBe(
-      "Interactive <div> should be a <button> or have role and tabIndex",
-    );
+    expect(violations[0].message).toContain("Interactive <div> should be");
+    expect(violations[0].message).toContain("Click");
     expect(violations[0].fix).toBeUndefined();
   });
 

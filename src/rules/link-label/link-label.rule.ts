@@ -1,9 +1,12 @@
 import type { SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
-import { ICON_LABEL_OVERRIDES } from "../button-label/icon-name-map.js";
+import { getIconLabel, getGenericLabel } from "../button-label/icon-name-map.js";
 
-export const linkLabelRule: Rule = {
+export function createLinkLabelRule(options: { locale?: string }): Rule {
+  const locale = options.locale ?? "en";
+
+  return {
   id: "link-label",
   type: "ai",
   scan(file: SourceFile): Violation[] {
@@ -85,9 +88,9 @@ export const linkLabelRule: Rule = {
           attribute: "aria-label",
           value: async () => {
             if (iconName) {
-              return iconNameToLabel(iconName);
+              return getIconLabel(iconName, locale);
             }
-            return "Link";
+            return getGenericLabel("Link", locale);
           },
         },
       });
@@ -96,6 +99,7 @@ export const linkLabelRule: Rule = {
     return violations;
   },
 };
+}
 
 function isNextLink(file: SourceFile): boolean {
   const imports = file.getImportDeclarations();
@@ -130,11 +134,3 @@ function isUpperCase(ch: string): boolean {
   return ch === ch.toUpperCase() && ch !== ch.toLowerCase();
 }
 
-function iconNameToLabel(iconName: string): string {
-  if (ICON_LABEL_OVERRIDES[iconName]) return ICON_LABEL_OVERRIDES[iconName];
-  const name = iconName
-    .replace(/Icon$/, "")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .toLowerCase();
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}

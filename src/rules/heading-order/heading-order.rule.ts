@@ -8,6 +8,21 @@ function headingLevel(tag: string): number {
   return Number(tag[1]);
 }
 
+function getHeadingText(
+  element: import("ts-morph").JsxOpeningElement | import("ts-morph").JsxSelfClosingElement
+): string {
+  if (element.getKind() === SyntaxKind.JsxSelfClosingElement) return "";
+  const parent = element.getParentIfKind(SyntaxKind.JsxElement);
+  if (!parent) return "";
+  const text = parent
+    .getJsxChildren()
+    .map((c) => c.getText())
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.slice(0, 50) + (text.length > 50 ? "…" : "");
+}
+
 export const headingOrderRule: Rule = {
   id: "heading-order",
   type: "detect",
@@ -17,7 +32,7 @@ export const headingOrderRule: Rule = {
     const filePath = file.getFilePath();
 
     // Collect all heading elements in document order
-    const headings: { tag: string; line: number; column: number }[] = [];
+    const headings: { tag: string; line: number; column: number; element: import("ts-morph").JsxOpeningElement | import("ts-morph").JsxSelfClosingElement }[] = [];
 
     const openingElements = file.getDescendantsOfKind(
       SyntaxKind.JsxOpeningElement,
@@ -27,7 +42,7 @@ export const headingOrderRule: Rule = {
       if (!HEADING_TAGS.has(tagName)) continue;
 
       const { line, column } = file.getLineAndColumnAtPos(element.getStart());
-      headings.push({ tag: tagName, line, column });
+      headings.push({ tag: tagName, line, column, element });
     }
 
     const selfClosingElements = file.getDescendantsOfKind(
@@ -38,7 +53,7 @@ export const headingOrderRule: Rule = {
       if (!HEADING_TAGS.has(tagName)) continue;
 
       const { line, column } = file.getLineAndColumnAtPos(element.getStart());
-      headings.push({ tag: tagName, line, column });
+      headings.push({ tag: tagName, line, column, element });
     }
 
     // Sort by document position (line, then column)
@@ -54,13 +69,15 @@ export const headingOrderRule: Rule = {
       // A skip occurs when the current heading jumps forward by more than 1 level
       if (currLevel > prevLevel + 1) {
         const expectedTag = `h${prevLevel + 1}`;
+        const headingText = getHeadingText(curr.element);
+        const textSuffix = headingText ? ` "${headingText}"` : "";
         violations.push({
           rule: "heading-order",
           filePath,
           line: curr.line,
           column: curr.column,
           element: `<${curr.tag}>`,
-          message: `Heading level skipped: expected ${expectedTag} but found ${curr.tag}`,
+          message: `Expected ${expectedTag} after ${prev.tag}, found ${curr.tag}${textSuffix}`,
         });
       }
     }

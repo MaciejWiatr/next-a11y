@@ -74,6 +74,11 @@ export const buttonTypeRule: Rule = {
             column,
             element: `<${tagName}>`,
             message: `Custom component <${tagName}> may render a <button> without an explicit "type" attribute. Consider passing type="button".`,
+            fix: {
+              type: "insert-attr",
+              attribute: "type",
+              value: "button",
+            },
           });
         }
         continue;
@@ -135,6 +140,11 @@ export const buttonTypeRule: Rule = {
           column,
           element: `<${tagName}>`,
           message: `Custom component <${tagName}> may render a <button> without an explicit "type" attribute. Consider passing type="button".`,
+          fix: {
+            type: "insert-attr",
+            attribute: "type",
+            value: "button",
+          },
         });
       }
     }

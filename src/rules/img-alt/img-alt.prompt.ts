@@ -6,7 +6,7 @@ Rules:
 - Never start with "Image of...", "Photo of...", "Picture of..."
 - Include visible text, actions, and key details
 - If the image is purely decorative (border, spacer, gradient), return exactly: ""
-- Respect the target locale for the response language
+- Output MUST be in the language of the locale (e.g. Polish for pl, German for de)
 - Be specific and contextual — use the page context provided`;
 
 export function buildImgAltPrompt(context: {

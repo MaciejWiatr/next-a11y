@@ -26,11 +26,13 @@ function copyRecursive(src, dest) {
   }
 }
 
-function run(cmd, args, cwd = ROOT) {
+function run(cmd, args, cwd = ROOT, opts = {}) {
   const r = spawnSync(cmd, args, {
     cwd,
     encoding: "utf-8",
     stdio: ["inherit", "pipe", "pipe"],
+    env: { ...process.env, FORCE_COLOR: "1" },
+    ...opts,
   });
   return { ...r, output: (r.stdout || "") + (r.stderr || "") };
 }
@@ -38,15 +40,13 @@ function run(cmd, args, cwd = ROOT) {
 function main() {
   console.log("  test:example — copy, fix, validate\n");
 
-  const distPath = path.join(ROOT, "dist", "cli", "index.js");
-  if (!fs.existsSync(distPath)) {
-    console.log("  Building next-a11y first...");
-    const build = run("npm", ["run", "build"], ROOT);
-    if (build.status !== 0) {
-      console.error("  Build failed");
-      process.exit(1);
-    }
+  console.log("  Building next-a11y...");
+  const build = run("npm", ["run", "build"], ROOT);
+  if (build.status !== 0) {
+    console.error("  Build failed");
+    process.exit(1);
   }
+  console.log("     Done.\n");
 
   const tmpDir = path.join(ROOT, ".tmp-broken-site-test");
   if (fs.existsSync(tmpDir)) {
@@ -69,7 +69,7 @@ function main() {
 
   // 3. Run next-a11y scan --fix (use local bin)
   console.log("  3. Running next-a11y scan . --fix");
-  const fixResult = run("node", [path.join(ROOT, "bin/cli.js"), "scan", tmpDir, "--fix"], ROOT);
+  const fixResult = run("node", [path.join(ROOT, "bin/cli.js"), "scan", tmpDir, "--fix", "--locale", "pl"], ROOT);
   if (fixResult.status !== 0) {
     console.error("     Scan --fix failed:", fixResult.output);
     process.exit(1);
@@ -79,7 +79,7 @@ function main() {
 
   // 4. Run next-a11y scan again — check result
   console.log("  4. Running next-a11y scan (validation)");
-  const validateResult = run("node", [path.join(ROOT, "bin/cli.js"), "scan", tmpDir], ROOT);
+  const validateResult = run("node", [path.join(ROOT, "bin/cli.js"), "scan", tmpDir, "--locale", "pl"], ROOT);
   const out = validateResult.output;
   console.log(out);
 

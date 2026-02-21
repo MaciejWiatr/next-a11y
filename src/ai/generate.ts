@@ -9,48 +9,48 @@ export interface GenerateOptions {
   maxRetries?: number;
 }
 
-export async function generate(options: GenerateOptions): Promise<string> {
+export interface GenerateResult {
+  text: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+}
+
+export async function generate(options: GenerateOptions): Promise<GenerateResult> {
   const { model, system, prompt, image, maxRetries = 2 } = options;
 
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      let result;
       if (image) {
-        // Vision prompt — send image as part of the message
-        const result = await generateText({
+        result = await generateText({
           model,
           system,
           messages: [
             {
               role: "user",
               content: [
-                {
-                  type: "image",
-                  image,
-                },
-                {
-                  type: "text",
-                  text: prompt,
-                },
+                { type: "image", image },
+                { type: "text", text: prompt },
               ],
             },
           ],
         });
-        return result.text.trim();
       } else {
-        // Text-only prompt
-        const result = await generateText({
-          model,
-          system,
-          prompt,
-        });
-        return result.text.trim();
+        result = await generateText({ model, system, prompt });
       }
+      const u = result.usage;
+      const usage = u
+        ? {
+            promptTokens: u.inputTokens,
+            completionTokens: u.outputTokens,
+            totalTokens: u.totalTokens ?? (u.inputTokens ?? 0) + (u.outputTokens ?? 0),
+          }
+        : undefined;
+      return { text: result.text.trim(), usage };
     } catch (error) {
       lastError = error as Error;
       if (attempt < maxRetries) {
-        // Wait before retry with exponential backoff
         await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
       }
     }

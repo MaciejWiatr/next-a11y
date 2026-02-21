@@ -17,9 +17,8 @@ describe("heading-order", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0].rule).toBe("heading-order");
     expect(violations[0].element).toBe("<h3>");
-    expect(violations[0].message).toBe(
-      "Heading level skipped: expected h2 but found h3",
-    );
+    expect(violations[0].message).toContain("Expected h2 after h1, found h3");
+    expect(violations[0].message).toContain("Sub");
     expect(violations[0].fix).toBeUndefined();
   });
 
@@ -54,13 +53,11 @@ describe("heading-order", () => {
 
     expect(violations).toHaveLength(2);
     expect(violations[0].element).toBe("<h3>");
-    expect(violations[0].message).toBe(
-      "Heading level skipped: expected h2 but found h3",
-    );
+    expect(violations[0].message).toContain("Expected h2 after h1, found h3");
+    expect(violations[0].message).toContain("Skip1");
     expect(violations[1].element).toBe("<h6>");
-    expect(violations[1].message).toBe(
-      "Heading level skipped: expected h4 but found h6",
-    );
+    expect(violations[1].message).toContain("Expected h4 after h3, found h6");
+    expect(violations[1].message).toContain("Skip2");
   });
 
   it("allows going back to a lower heading level without violation", () => {
@@ -84,7 +81,8 @@ describe("heading-order", () => {
       `const App = () => <div><h2>Sub</h2><h4>Deep</h4></div>;`,
     );
     expect(violations).toHaveLength(1);
-    expect(violations[0].message).toBe("Heading level skipped: expected h3 but found h4");
+    expect(violations[0].message).toContain("Expected h3 after h2, found h4");
+    expect(violations[0].message).toContain("Deep");
   });
 
   it("allows h1 -> h2 -> h1 -> h2 pattern (resetting sections)", () => {
@@ -106,7 +104,8 @@ describe("heading-order", () => {
       `const App = () => <div><h1>Title</h1><h6>Skip all</h6></div>;`,
     );
     expect(violations).toHaveLength(1);
-    expect(violations[0].message).toBe("Heading level skipped: expected h2 but found h6");
+    expect(violations[0].message).toContain("Expected h2 after h1, found h6");
+    expect(violations[0].message).toContain("Skip all");
   });
 
   it("has no fix (detect-only rule)", () => {

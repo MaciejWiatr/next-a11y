@@ -10,7 +10,9 @@ export interface CLIFlags {
   fillAlt?: boolean;
   provider?: string;
   model?: string;
+  locale?: string;
   minScore?: number;
+  quiet?: boolean;
 }
  
 export async function loadConfigFile(cwd: string): Promise<A11yConfig> {
@@ -57,7 +59,7 @@ export function resolveConfig(
   return {
     provider,
     model,
-    locale: merged.locale ?? "en",
+    locale: cliFlags.locale ?? merged.locale ?? "en",
     cache: merged.cache ?? ".a11y-cache",
     scanner: {
       include: merged.scanner?.include ?? DEFAULT_CONFIG.scanner!.include!,
@@ -69,6 +71,7 @@ export function resolveConfig(
     noAi: cliFlags.noAi ?? false,
     fillAlt: cliFlags.fillAlt ?? merged.fillAlt ?? true,
     minScore: cliFlags.minScore,
+    quiet: cliFlags.quiet ?? false,
   };
 }
 

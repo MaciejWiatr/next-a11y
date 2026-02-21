@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Project } from "ts-morph";
-import { linkLabelRule } from "./link-label.rule.js";
+import { createLinkLabelRule } from "./link-label.rule.js";
+
+const linkLabelRule = createLinkLabelRule({ locale: "en" });
 
 function createFile(code: string) {
   const project = new Project({ useInMemoryFileSystem: true });

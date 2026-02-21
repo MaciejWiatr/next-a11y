@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { RuleId, Violation } from "./types.js";
 
+/** Heuristic weights — not a WCAG compliance metric. Use for progress tracking and CI gating. */
 export const WEIGHT_TABLE: Record<RuleId, number> = {
   "img-alt": 2,
   "button-label": 2,

@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import * as path from "node:path";
 import type { LanguageModel } from "ai";
 import type { ProviderName } from "../config/schema.js";
+import { PROVIDER_ENV } from "../config/schema.js";
 
 const PROVIDER_PACKAGES: Record<ProviderName, string> = {
   openai: "@ai-sdk/openai",
@@ -12,11 +13,11 @@ const PROVIDER_PACKAGES: Record<ProviderName, string> = {
 };
 
 const PROVIDER_INSTALL: Record<ProviderName, string> = {
-  openai: "npm install @ai-sdk/openai",
-  anthropic: "npm install @ai-sdk/anthropic",
-  google: "npm install @ai-sdk/google",
-  ollama: "npm install ollama-ai-provider",
-  openrouter: "npm install @openrouter/ai-sdk-provider",
+  openai: "npm install -D @ai-sdk/openai",
+  anthropic: "npm install -D @ai-sdk/anthropic",
+  google: "npm install -D @ai-sdk/google",
+  ollama: "npm install -D ollama-ai-provider",
+  openrouter: "npm install -D @openrouter/ai-sdk-provider",
 };
 
 export function createProvider(
@@ -43,27 +44,28 @@ export function createProvider(
   }
 
   switch (provider) {
-    case "openai": {
-      const { openai } = mod;
-      return openai(model);
-    }
-    case "anthropic": {
-      const { anthropic } = mod;
-      return anthropic(model);
-    }
+    case "openai":
+    case "anthropic":
     case "google": {
-      const { google } = mod;
-      return google(model);
+      const envVar = PROVIDER_ENV[provider];
+      if (envVar && !process.env[envVar]) {
+        throw new Error(
+          `${provider} requires ${envVar}. Set it in .env or your environment.`
+        );
+      }
+      const fn = mod[provider];
+      return fn(model);
     }
     case "ollama": {
       const { ollama } = mod;
       return ollama(model);
     }
     case "openrouter": {
-      const apiKey = process.env.OPENROUTER_API_KEY;
+      const envVar = PROVIDER_ENV.openrouter!;
+      const apiKey = process.env[envVar];
       if (!apiKey) {
         throw new Error(
-          "OpenRouter requires OPENROUTER_API_KEY. Set it in .env or your environment."
+          `openrouter requires ${envVar}. Set it in .env or your environment.`
         );
       }
       const { createOpenRouter } = mod;

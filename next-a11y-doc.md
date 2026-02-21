@@ -1,6 +1,6 @@
 # next-a11y — Architecture Document
 
-> AI-powered accessibility codemod for Next.js. Scans your source code, detects WCAG violations, and auto-fixes them — from missing alt texts to unlabeled buttons. Fixes 4 of the 6 most common accessibility errors found on 95% of websites (WebAIM Million 2025).
+> AI-powered accessibility codemod for Next.js. Scans your source code, detects WCAG violations, and auto-fixes them — from missing alt texts to unlabeled buttons. Fixes 5 of the 6 most common accessibility errors (WebAIM Million 2025): missing alt, missing form labels, empty links, empty buttons, missing lang. The 6th — low contrast — requires runtime analysis.
 
 ---
 
@@ -12,7 +12,7 @@ Static analysis codemod — runs at dev time, modifies source files, ships zero 
 
 ## 1. What It Fixes
 
-Based on WebAIM Million 2025 data — the annual audit of 1,000,000 homepages that found 95% failing WCAG 2.2 AA. The top 6 error categories account for 96.4% of all detected errors. next-a11y addresses all six.
+Based on WebAIM Million 2025 data — the annual audit of 1,000,000 homepages that found 95% failing WCAG 2.2 AA. The top 6 error categories account for 96.4% of all detected errors. next-a11y auto-fixes 5 of 6 (missing alt, form labels, empty links, empty buttons, missing lang); the 6th (low contrast) requires runtime color analysis.
 
 ### AI-Powered Fixes (require vision model)
 
@@ -60,7 +60,7 @@ npx next-a11y scan ./src --fix
 # Interactive — review each fix
 npx next-a11y scan ./src --fix -i
 
-# Deterministic fixes only (no AI, no API key needed)
+# Deterministic fixes only (no AI, no API key needed — not recommended for best results)
 npx next-a11y scan ./src --fix --no-ai
 
 # Override AI provider
@@ -140,7 +140,7 @@ npx next-a11y scan ./src
   🔍 Scanned 47 files · 312 elements
 
   ╭──────────────────────────────────────╮
-  │  Accessibility Score:  34 / 100  🔴  │
+  │  Heuristic score:  34 / 100  🔴  │
   ╰──────────────────────────────────────╯
 
   AI fixes available:
@@ -179,7 +179,7 @@ npx next-a11y scan ./src     # after running --fix
   🔍 Scanned 47 files · 312 elements
 
   ╭──────────────────────────────────────╮
-  │  Accessibility Score:  97 / 100  🟢  │
+  │  Heuristic score:  97 / 100  🟢  │
   ╰──────────────────────────────────────╯
 
   ✅ All auto-fixable issues resolved
@@ -194,7 +194,7 @@ npx next-a11y scan ./src     # after running --fix
 
 ### Scoring System
 
-Score starts at **100** and deducts points per violation. Weights reflect real-world user impact — how severely the issue blocks access for people using assistive technology.
+Score starts at **100** and deducts points per violation. Weights reflect real-world user impact — how severely the issue blocks access for people using assistive technology. **This is a heuristic score, not a WCAG compliance certification** — 97/100 does not mean WCAG AA compliant.
 
 **Weight table:**
 
@@ -828,7 +828,7 @@ Image alt generation requires sending the actual image bytes to a vision model. 
 
 ### Why `--no-ai` flag?
 
-Deterministic fixes (lang, emoji, tabindex, button-type, link-noopener) don't need an API key. A user can run `npx next-a11y scan ./src --fix --no-ai` and get immediate value without any AI setup. This lowers the barrier to entry and makes the tool useful even for teams that can't use external AI providers.
+Deterministic fixes (lang, emoji, tabindex, button-type, link-noopener) don't need an API key. A user can run `npx next-a11y scan ./src --fix --no-ai` and get immediate value without any AI setup. This lowers the barrier to entry and makes the tool useful even for teams that can't use external AI providers. Not recommended for best results — AI fixes handle alt text, labels, and page titles more accurately.
 
 ### Why detection-only rules (no auto-fix)?
 

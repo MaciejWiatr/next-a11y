@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> THIS PACKAGE IS IN ACTIVE DEVELOPMENT
+
 # next-a11y
 
 **Finds accessibility violations in your Next.js source code. Writes the fix.**

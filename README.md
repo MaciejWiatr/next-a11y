@@ -26,7 +26,7 @@ npx next-a11y scan ./src --fix   # fix it
 ### Before (report only)
 
 ```
-  next-a11y v0.1.7
+  next-a11y v0.1.9
   Scanned 13 files
 
   Heuristic score:  34 / 100  Poor
@@ -71,7 +71,7 @@ npx next-a11y scan ./src --fix   # fix it
   [FIXED]  src/app/page.tsx:1  added metadata.title "Home"
   ...
 
-  next-a11y v0.1.7
+  next-a11y v0.1.9
   Scanned 13 files
 
   Heuristic score:  97 / 100  Good
@@ -94,9 +94,9 @@ npx next-a11y scan ./src --fix   # fix it
 | Rule           | What it does                                                    |
 | -------------- | --------------------------------------------------------------- |
 | `img-alt`      | Sends image to vision model → generates WCAG-compliant alt text |
-| `button-label`| Icon button → reads icon name + context → `aria-label`           |
-| `link-label`  | Icon link → same approach                                       |
-| `input-label` | Unlabeled input → generates `<label>` or `aria-label`            |
+| `button-label` | Icon button → reads icon name + context → `aria-label`          |
+| `link-label`   | Icon link → same approach                                       |
+| `input-label`  | Unlabeled input → generates `<label>` or `aria-label`           |
 
 ### Deterministic (zero AI cost, no API key)
 
@@ -122,7 +122,7 @@ npx next-a11y scan ./src --fix   # fix it
 | Rule                 | What it does                                             |
 | -------------------- | -------------------------------------------------------- |
 | `heading-order`      | Flags `h1` → `h3` skips (shows heading text in message)  |
-| `no-div-interactive` | Flags `<div onClick>` without `role` or keyboard handler|
+| `no-div-interactive` | Flags `<div onClick>` without `role` or keyboard handler |
 
 ## Locale support
 
@@ -190,17 +190,17 @@ export default defineConfig({
 npx next-a11y scan <path> [options]
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--fix` | Auto-fix issues |
-| `-i, --interactive` | Review each fix interactively |
-| `--no-ai` | Skip AI-powered fixes (deterministic only, not recommended) |
-| `--provider <name>` | Override AI provider (openai, anthropic, google, ollama, openrouter) |
-| `--model <name>` | Override AI model |
-| `--fill-alt` | Replace empty `alt=""` with AI-generated text |
-| `--locale <locale>` | Locale for generated content (e.g. en, pl, de) |
-| `--min-score <score>` | Exit code 1 if heuristic score below threshold |
-| `-q, --quiet` | Minimal output (no progress, one-line report) |
+| Option                | Description                                                          |
+| --------------------- | -------------------------------------------------------------------- |
+| `--fix`               | Auto-fix issues                                                      |
+| `-i, --interactive`   | Review each fix interactively                                        |
+| `--no-ai`             | Skip AI-powered fixes (deterministic only, not recommended)          |
+| `--provider <name>`   | Override AI provider (openai, anthropic, google, ollama, openrouter) |
+| `--model <name>`      | Override AI model                                                    |
+| `--fill-alt`          | Replace empty `alt=""` with AI-generated text                        |
+| `--locale <locale>`   | Locale for generated content (e.g. en, pl, de)                       |
+| `--min-score <score>` | Exit code 1 if heuristic score below threshold                       |
+| `-q, --quiet`         | Minimal output (no progress, one-line report)                        |
 
 ### init
 

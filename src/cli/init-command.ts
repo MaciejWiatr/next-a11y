@@ -18,7 +18,8 @@ export function registerInitCommand(program: Command): void {
     .command("init")
     .description("Initialize next-a11y configuration")
     .action(async () => {
-      console.log(pc.bold("\n  next-a11y v0.1.4 — Setup\n"));
+      const version = program.version();
+      console.log(pc.bold(`\n  next-a11y v${version} — Setup\n`));
 
       const options = await promptInitOptions();
 

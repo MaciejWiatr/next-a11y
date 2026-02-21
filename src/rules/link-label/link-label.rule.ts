@@ -36,6 +36,13 @@ export const linkLabelRule: Rule = {
 
           if (hasTextContent) continue;
 
+          // Check for JSX expression children like {t("key")}, {variable}, {cond ? "a" : "b"}
+          const hasExpressionContent = parent
+            .getDescendantsOfKind(SyntaxKind.JsxExpression)
+            .some((expr) => expr.getExpression() != null);
+
+          if (hasExpressionContent) continue;
+
           // Check for img/Image with alt text
           const images = [
             ...parent.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement),

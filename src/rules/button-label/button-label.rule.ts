@@ -33,6 +33,13 @@ export const buttonLabelRule: Rule = {
 
           if (hasTextContent) continue;
 
+          // Check for JSX expression children like {t("key")}, {variable}, {cond ? "a" : "b"}
+          const hasExpressionContent = parent
+            .getDescendantsOfKind(SyntaxKind.JsxExpression)
+            .some((expr) => expr.getExpression() != null);
+
+          if (hasExpressionContent) continue;
+
           // Check for nested elements with text
           const nestedElements = parent.getDescendantsOfKind(
             SyntaxKind.JsxOpeningElement

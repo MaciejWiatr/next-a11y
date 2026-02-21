@@ -9,6 +9,8 @@ import { formatReport, formatFixApplied } from "./format.js";
 import { interactiveReview } from "./interactive.js";
 
 export function registerScanCommand(program: Command): void {
+  const version = program.version() as string | undefined;
+
   program
     .command("scan")
     .description("Scan files for accessibility issues")
@@ -68,7 +70,7 @@ export function registerScanCommand(program: Command): void {
         );
 
         result = await finalize(ctx, applied);
-        console.log(formatReport(result, true));
+        console.log(formatReport(result, true, version));
       } else if (config.fix) {
         // Auto-fix mode: detect → resolve AI → fix all → list
         const ctx = await detect(targetPath, config);
@@ -102,11 +104,11 @@ export function registerScanCommand(program: Command): void {
           }
         }
 
-        console.log(formatReport(result, true));
+        console.log(formatReport(result, true, version));
       } else {
         // Report-only mode
         result = await scan(targetPath, config);
-        console.log(formatReport(result, false));
+        console.log(formatReport(result, false, version));
       }
 
       // CI gate

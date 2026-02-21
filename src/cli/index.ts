@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name("next-a11y")
   .description("AI-powered accessibility codemod for Next.js")
-  .version("0.1.0");
+  .version("0.1.3");
 
 registerScanCommand(program);
 registerInitCommand(program);

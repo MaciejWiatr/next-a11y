@@ -5,6 +5,7 @@ import { execSync } from "node:child_process";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { detect as detectPM, resolveCommand } from "package-manager-detector";
+import { detectLocaleFromProject } from "../config/resolve.js";
 import { PROVIDER_ENV, type ProviderName } from "../config/schema.js";
 
 interface InitOptions {
@@ -17,11 +18,14 @@ export function registerInitCommand(program: Command): void {
   program
     .command("init")
     .description("Initialize next-a11y configuration")
-    .action(async () => {
+    .option("-y, --yes", "Use defaults, skip prompts (for CI/testing)")
+    .action(async (opts: { yes?: boolean }) => {
       const version = program.version();
       console.log(pc.bold(`\n  next-a11y v${version} — Setup\n`));
 
-      const options = await promptInitOptions();
+      const options = opts.yes
+        ? { provider: "none" as const, installDep: false, addGitignore: false }
+        : await promptInitOptions();
 
       // Detect project structure
       const cwd = process.cwd();
@@ -32,8 +36,9 @@ export function registerInitCommand(program: Command): void {
       if (hasAppDir) include.push("app/**/*.{tsx,jsx}");
       if (include.length === 0) include.push("**/*.{tsx,jsx}");
 
-      // Generate config
-      const configContent = generateConfig(options.provider, include);
+      // Generate config (detect locale from project)
+      const detectedLocale = await detectLocaleFromProject(cwd);
+      const configContent = generateConfig(options.provider, include, detectedLocale);
       const configPath = path.join(cwd, "a11y.config.ts");
       fs.writeFileSync(configPath, configContent);
       console.log(pc.green("  Created a11y.config.ts"));
@@ -161,7 +166,11 @@ function promptYesNo(question: string): Promise<boolean> {
   });
 }
 
-function generateConfig(provider: ProviderName | "none", include: string[]): string {
+function generateConfig(
+  provider: ProviderName | "none",
+  include: string[],
+  detectedLocale?: string
+): string {
   const providerLine =
     provider === "none"
       ? "  // provider: 'openai',  // Uncomment and set when ready"
@@ -180,11 +189,13 @@ function generateConfig(provider: ProviderName | "none", include: string[]): str
       ? `\n  model: "${modelMap[provider]}",`
       : "";
 
+  const locale = detectedLocale ?? "en";
+
   return `import { defineConfig } from "next-a11y";
 
 export default defineConfig({
 ${providerLine}${modelLine}
-  locale: "en",
+  locale: "${locale}",
   cache: ".a11y-cache",
   scanner: {
     include: [${include.map((p) => `"${p}"`).join(", ")}],

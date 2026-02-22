@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { config as dotenvConfig } from "dotenv";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { loadConfigFile, resolveConfig } from "../config/resolve.js";
+import { loadConfigFile, resolveConfig, detectLocaleFromProject } from "../config/resolve.js";
 import { detect, resolveAi, applyAllFixes, fixViolation, finalize, scan } from "../scan/scan.js";
 import { formatReport, formatFixApplied } from "./format.js";
 import { interactiveReview } from "./interactive.js";
@@ -44,6 +44,7 @@ export function registerScanCommand(program: Command): void {
       }
 
       const fileConfig = await loadConfigFile(process.cwd());
+      const detectedLocale = await detectLocaleFromProject(process.cwd());
       const config = resolveConfig(fileConfig, {
         fix: options.fix,
         interactive: options.interactive,
@@ -52,6 +53,7 @@ export function registerScanCommand(program: Command): void {
         provider: options.provider,
         model: options.model,
         locale: options.locale,
+        detectedLocale,
         minScore: options.minScore,
         quiet: options.quiet,
       });

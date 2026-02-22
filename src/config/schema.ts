@@ -78,10 +78,10 @@ export const DEFAULT_RULES: Record<RuleId, RuleConfig> = {
   "no-div-interactive": "warn",
 };
 
-const RULE_OPTION_DEFAULTS: Record<RuleId, Partial<ResolvedRuleConfig>> = {
+const RULE_OPTION_DEFAULTS: Partial<Record<RuleId, Partial<ResolvedRuleConfig>>> = {
   "button-type": { scanCustomComponents: false },
   "img-alt": { fillAlt: true },
-} as const;
+};
 
 export function resolveRuleConfig(
   ruleId: RuleId,
@@ -89,8 +89,8 @@ export function resolveRuleConfig(
 ): ResolvedRuleConfig {
   const merged = config ?? DEFAULT_RULES[ruleId];
   const level = typeof merged === "string" ? merged : merged.level;
-  const opts = typeof merged === "string" ? {} : merged;
-  const defaults = RULE_OPTION_DEFAULTS[ruleId] ?? {};
+  const opts: Partial<ResolvedRuleConfig> = typeof merged === "string" ? {} : merged;
+  const defaults = (RULE_OPTION_DEFAULTS[ruleId] ?? {}) as Partial<ResolvedRuleConfig>;
   return {
     level,
     // button-type: explicitly false by default

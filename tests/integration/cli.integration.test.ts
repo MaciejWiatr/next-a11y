@@ -70,4 +70,25 @@ describe("CLI smoke", () => {
     expect(content).toContain('rel="noopener noreferrer"');
     expect(content).toMatch(/role="img".*aria-label/);
   });
+
+  it("init --yes detects locale from next.config.js and writes it to a11y.config.ts", () => {
+    const initDir = path.join(tmpDir, "init-locale");
+    fs.mkdirSync(initDir, { recursive: true });
+    fs.writeFileSync(path.join(initDir, "package.json"), '{"name":"test"}', "utf-8");
+    fs.writeFileSync(
+      path.join(initDir, "next.config.js"),
+      "module.exports = { i18n: { defaultLocale: 'pl', locales: ['pl','en'] } };",
+      "utf-8"
+    );
+    const r = spawnSync("node", [BIN, "init", "--yes"], {
+      cwd: initDir,
+      encoding: "utf-8",
+      env: { ...process.env, FORCE_COLOR: "0" },
+    });
+    expect(r.status).toBe(0);
+    const configPath = path.join(initDir, "a11y.config.ts");
+    expect(fs.existsSync(configPath)).toBe(true);
+    const config = fs.readFileSync(configPath, "utf-8");
+    expect(config).toContain('locale: "pl"');
+  });
 });

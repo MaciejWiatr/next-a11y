@@ -18,6 +18,7 @@ export interface CLIFlags {
   provider?: string;
   model?: string;
   locale?: string;
+  detectedLocale?: string;
   minScore?: number;
   quiet?: boolean;
 }
@@ -79,7 +80,7 @@ export function resolveConfig(
   return {
     provider,
     model,
-    locale: cliFlags.locale ?? merged.locale ?? "en",
+    locale: cliFlags.locale ?? merged.locale ?? cliFlags.detectedLocale ?? "en",
     cache: merged.cache ?? ".a11y-cache",
     scanner: {
       include: merged.scanner?.include ?? DEFAULT_CONFIG.scanner!.include!,
@@ -92,6 +93,60 @@ export function resolveConfig(
     minScore: cliFlags.minScore,
     quiet: cliFlags.quiet ?? false,
   };
+}
+
+/**
+ * Auto-detect locale from Next.js / next-intl config. Returns undefined if not found.
+ */
+export async function detectLocaleFromProject(cwd: string): Promise<string | undefined> {
+  const projectRoot = findProjectRoot(cwd);
+  if (!projectRoot) return undefined;
+
+  // 1. next.config.js/mjs/ts — i18n.defaultLocale (Pages Router)
+  for (const name of ["next.config.js", "next.config.mjs", "next.config.ts"]) {
+    const configPath = path.join(projectRoot, name);
+    if (fs.existsSync(configPath)) {
+      try {
+        const content = fs.readFileSync(configPath, "utf-8");
+        const m = content.match(/defaultLocale\s*:\s*['"`]([a-z]{2}(-[A-Za-z0-9]+)?)['"`]/);
+        if (m) return m[1];
+      } catch {
+        // ignore
+      }
+      break; // only check first found
+    }
+  }
+
+  // 2. next-intl — i18n/routing.ts, i18n.ts, src/i18n/routing.ts
+  for (const p of [
+    "i18n/routing.ts",
+    "i18n.ts",
+    "src/i18n/routing.ts",
+    "src/i18n.ts",
+  ]) {
+    const filePath = path.join(projectRoot, p);
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = fs.readFileSync(filePath, "utf-8");
+        const m = content.match(/defaultLocale\s*:\s*['"`]([a-z]{2}(-[A-Za-z0-9]+)?)['"`]/);
+        if (m) return m[1];
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function findProjectRoot(dir: string): string | undefined {
+  let current = path.resolve(dir);
+  if (fs.statSync(current).isFile()) current = path.dirname(current);
+  while (current !== path.dirname(current)) {
+    if (fs.existsSync(path.join(current, "package.json"))) return current;
+    current = path.dirname(current);
+  }
+  return fs.existsSync(path.join(current, "package.json")) ? current : undefined;
 }
 
 /**

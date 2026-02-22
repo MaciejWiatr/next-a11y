@@ -1,10 +1,11 @@
-import type { Rule, RuleId, RuleSetting } from "../scan/types.js";
+import type { Rule, RuleId } from "../scan/types.js";
+import type { ResolvedRuleConfig } from "../config/schema.js";
 import { createImgAltRule } from "./img-alt/img-alt.rule.js";
 import { createButtonLabelRule } from "./button-label/button-label.rule.js";
 import { createLinkLabelRule } from "./link-label/link-label.rule.js";
 import { inputLabelRule } from "./input-label/input-label.rule.js";
 import { noPositiveTabindexRule } from "./no-positive-tabindex/no-positive-tabindex.rule.js";
-import { buttonTypeRule } from "./button-type/button-type.rule.js";
+import { createButtonTypeRule } from "./button-type/button-type.rule.js";
 import { linkNoopenerRule } from "./link-noopener/link-noopener.rule.js";
 import { emojiAltRule } from "./emoji-alt/emoji-alt.rule.js";
 import { createHtmlLangRule } from "./html-lang/html-lang.rule.js";
@@ -16,21 +17,24 @@ import { nextSkipNavRule } from "./next-skip-nav/next-skip-nav.rule.js";
 import { nextLinkNoNestedARule } from "./next-link-no-nested-a/next-link-no-nested-a.rule.js";
 
 export interface RuleOptions {
-  fillAlt?: boolean;
   locale?: string;
+  rules: Record<RuleId, ResolvedRuleConfig>;
 }
 
-function buildAllRules(options: RuleOptions = {}): Rule[] {
+function buildAllRules(options: RuleOptions): Rule[] {
+  const { rules, locale = "en" } = options;
   return [
-    createImgAltRule({ fillAlt: options.fillAlt ?? false }),
-    createButtonLabelRule({ locale: options.locale ?? "en" }),
-    createLinkLabelRule({ locale: options.locale ?? "en" }),
+    createImgAltRule({ fillAlt: rules["img-alt"]?.fillAlt ?? true }),
+    createButtonLabelRule({ locale }),
+    createLinkLabelRule({ locale }),
     inputLabelRule,
     noPositiveTabindexRule,
-    buttonTypeRule,
+    createButtonTypeRule({
+      scanCustomComponents: rules["button-type"]?.scanCustomComponents ?? false,
+    }),
     linkNoopenerRule,
     emojiAltRule,
-    createHtmlLangRule({ locale: options.locale ?? "en" }),
+    createHtmlLangRule({ locale }),
     headingOrderRule,
     noDivInteractiveRule,
     nextMetadataTitleRule,
@@ -41,14 +45,14 @@ function buildAllRules(options: RuleOptions = {}): Rule[] {
 }
 
 export function getRulesForConfig(
-  ruleSettings: Record<RuleId, RuleSetting>,
+  rules: Record<RuleId, ResolvedRuleConfig>,
   noAi: boolean,
-  options: RuleOptions = {}
+  options: { locale?: string } = {}
 ): Rule[] {
-  return buildAllRules(options).filter((rule) => {
-    const setting = ruleSettings[rule.id];
-    if (setting === "off") return false;
-    if (noAi && rule.type === "ai") return false;
+  return buildAllRules({ rules, locale: options.locale }).filter((rule) => {
+    const config = rules[rule.id];
+    if (!config || config.level === "off") return false;
+    // Keep AI rules even when noAi — they produce deterministic violations too
     return true;
   });
 }

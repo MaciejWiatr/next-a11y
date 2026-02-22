@@ -86,7 +86,7 @@ export function registerScanCommand(program: Command): void {
         });
 
         const { fixedCount, fixed } = await applyAllFixes(ctx, ctx.violations);
-        result = await finalize(ctx, fixedCount);
+        result = await finalize(ctx, fixedCount, fixed);
 
         if (fixed.length > 0 && !config.quiet) {
           console.log(pc.bold("\n  Fixes applied:\n"));

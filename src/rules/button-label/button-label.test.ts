@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Project } from "ts-morph";
 import { createButtonLabelRule } from "./button-label.rule.js";
+import { applyFix } from "../../apply/apply.js";
 
 const buttonLabelRule = createButtonLabelRule({ locale: "en" });
 
@@ -150,5 +151,98 @@ describe("button-label rule", () => {
     expect(violations).toHaveLength(1);
     const value = await (violations[0].fix!.value as Function)();
     expect(value).toBe("Dodaj do koszyka");
+  });
+
+  it("uses variable in scope when button is inside map", async () => {
+    const file = createFile(`
+      {sections.map((section) => (
+        <button key={section.id} onClick={() => scrollToSection(section.id)}>
+          <Hash className="h-3 w-3" />
+          {section.label}
+        </button>
+      ))}
+    `);
+    const violations = buttonLabelRule.scan(file);
+    expect(violations).toHaveLength(1);
+    const value = await (violations[0].fix!.value as Function)();
+    expect(value).toContain("section.label");
+    expect(value).toContain("Go to section");
+  });
+
+  it("flags generic aria-label when variable used in content and suggests improvement", () => {
+    const file = createFile(`
+      {sections.map((section) => (
+        <button aria-label="Przejdź do sekcji" onClick={() => scrollToSection(section.id)}>
+          <Hash className="h-3 w-3" />
+          {section.label}
+        </button>
+      ))}
+    `);
+    const violations = buttonLabelRule.scan(file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].fix?.type).toBe("replace-attr");
+    expect(violations[0].fix?.value).toContain("section.label");
+    expect(violations[0].fix?.value).toContain("Przejdź do sekcji");
+  });
+
+  it("does not flag generic aria-label when variable not used in button content", () => {
+    const file = createFile(`
+      {sections.map((section) => (
+        <button aria-label="Przejdź do sekcji">
+          <HashIcon />
+        </button>
+      ))}
+    `);
+    const violations = buttonLabelRule.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("flags generic aria-label when variable in nested span", () => {
+    const file = createFile(`
+      {sections.map((section) => (
+        <button aria-label="Przejdź do sekcji" type="button">
+          <span>{section.label}</span>
+        </button>
+      ))}
+    `);
+    const violations = buttonLabelRule.scan(file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].fix?.type).toBe("replace-attr");
+    expect(violations[0].fix?.value).toContain("section.label");
+  });
+
+  it("applyFix inserts aria-label with expression when adding in map", async () => {
+    const file = createFile(`
+      {sections.map((section) => (
+        <button key={section.id} type="button">
+          <Hash className="h-3" />
+          {section.label}
+        </button>
+      ))}
+    `);
+    const violations = buttonLabelRule.scan(file);
+    expect(violations).toHaveLength(1);
+    const applied = await applyFix(file, violations[0]);
+    expect(applied).toBe(true);
+    const text = file.getFullText();
+    expect(text).toContain("aria-label={\`Go to section");
+    expect(text).toContain("section.label");
+  });
+
+  it("applyFix replaces aria-label with expression when variable in scope", async () => {
+    const file = createFile(`
+      {sections.map((section) => (
+        <button aria-label="Go to section" type="button">
+          <span>{section.label}</span>
+        </button>
+      ))}
+    `);
+    const violations = buttonLabelRule.scan(file);
+    expect(violations).toHaveLength(1);
+    const applied = await applyFix(file, violations[0]);
+    expect(applied).toBe(true);
+    const text = file.getFullText();
+    expect(text).toContain("aria-label={\`Go to section");
+    expect(text).toContain("section.label");
   });
 });

@@ -2,6 +2,10 @@ import type { SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
 import { getIconLabel, getGenericLabel } from "../button-label/icon-name-map.js";
+import {
+  findLabelVariableInScope,
+  wrapLabelWithVariable,
+} from "../../utils/find-label-variable.js";
 
 export function createLinkLabelRule(options: { locale?: string }): Rule {
   const locale = options.locale ?? "en";
@@ -25,10 +29,39 @@ export function createLinkLabelRule(options: { locale?: string }): Rule {
       if (tagName !== "a" && tagName !== "Link") continue;
       if (tagName === "Link" && !isNextLink(file)) continue;
 
-      // Check for aria-label or aria-labelledby
-      if (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby")) {
-        continue;
+      const ariaLabelAttr = el.getAttribute("aria-label");
+      if (el.getAttribute("aria-labelledby")) continue;
+
+      // Generic aria-label in map: suggest using variable
+      if (ariaLabelAttr?.getKind() === SyntaxKind.JsxAttribute) {
+        const init = ariaLabelAttr.asKind(SyntaxKind.JsxAttribute)?.getInitializer();
+        if (init?.getKind() === SyntaxKind.StringLiteral) {
+          const currentLabel =
+            init.asKind(SyntaxKind.StringLiteral)?.getLiteralValue() ?? "";
+          const line = el.getStartLineNumber();
+          const varRef = findLabelVariableInScope(file, line, {
+            usedInContent: true,
+          });
+          if (varRef && currentLabel.length > 0) {
+            violations.push({
+              rule: "link-label",
+              filePath,
+              line,
+              column: el.getStart() - el.getStartLinePos(),
+              element: el.getText().slice(0, 80),
+              message: "Use variable in aria-label for better screen reader context",
+              fix: {
+                type: "replace-attr",
+                attribute: "aria-label",
+                value: wrapLabelWithVariable(currentLabel, varRef),
+              },
+            });
+            continue;
+          }
+        }
       }
+
+      if (ariaLabelAttr) continue;
 
       // Check if there's visible text content
       if (el.getKind() === SyntaxKind.JsxOpeningElement) {
@@ -75,11 +108,12 @@ export function createLinkLabelRule(options: { locale?: string }): Rule {
       }
 
       const iconName = getIconName(el);
+      const line = el.getStartLineNumber();
 
       violations.push({
         rule: "link-label",
         filePath,
-        line: el.getStartLineNumber(),
+        line,
         column: el.getStart() - el.getStartLinePos(),
         element: el.getText().slice(0, 80),
         message: "Link has no accessible name",
@@ -87,10 +121,12 @@ export function createLinkLabelRule(options: { locale?: string }): Rule {
           type: "insert-attr",
           attribute: "aria-label",
           value: async () => {
-            if (iconName) {
-              return getIconLabel(iconName, locale);
-            }
-            return getGenericLabel("Link", locale);
+            const base = iconName
+              ? getIconLabel(iconName, locale)
+              : getGenericLabel("Link", locale);
+            const varRef = findLabelVariableInScope(file, line);
+            if (varRef) return wrapLabelWithVariable(base, varRef);
+            return base;
           },
         },
       });

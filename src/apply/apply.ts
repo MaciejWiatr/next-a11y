@@ -74,8 +74,12 @@ function insertAttribute(
     if (el.getStartLineNumber() === line) {
       const existing = el.getAttribute(attribute);
       if (!existing) {
-        const escaped = value.replace(/"/g, "&quot;");
-        el.addAttribute({ name: attribute, initializer: `"${escaped}"` });
+        if (value.startsWith("{")) {
+          el.addAttribute({ name: attribute, initializer: value });
+        } else {
+          const escaped = value.replace(/"/g, "&quot;");
+          el.addAttribute({ name: attribute, initializer: `"${escaped}"` });
+        }
         return true;
       }
     }

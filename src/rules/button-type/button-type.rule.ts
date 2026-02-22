@@ -2,11 +2,16 @@ import { SyntaxKind } from "ts-morph";
 import type { SourceFile } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
 
-export const buttonTypeRule: Rule = {
-  id: "button-type",
-  type: "deterministic",
+export function createButtonTypeRule(options: {
+  scanCustomComponents?: boolean;
+}): Rule {
+  const scanCustomComponents = options.scanCustomComponents ?? false;
 
-  scan(file: SourceFile): Violation[] {
+  return {
+    id: "button-type",
+    type: "deterministic",
+
+    scan(file: SourceFile): Violation[] {
     const violations: Violation[] = [];
     const filePath = file.getFilePath();
 
@@ -53,8 +58,8 @@ export const buttonTypeRule: Rule = {
     for (const element of selfClosingElements) {
       const tagName = element.getTagNameNode().getText();
 
-      // Custom components (uppercase first letter) get a warning with no fix
-      if (tagName !== "button" && tagName[0] === tagName[0].toUpperCase()) {
+      // Custom components (uppercase first letter) — only when enabled
+      if (scanCustomComponents && tagName !== "button" && tagName[0] === tagName[0].toUpperCase()) {
         const hasTypeAttr = element
           .getAttributes()
           .some(
@@ -114,41 +119,44 @@ export const buttonTypeRule: Rule = {
       });
     }
 
-    // Also check opening elements for custom components (uppercase)
-    for (const element of openingElements) {
-      const tagName = element.getTagNameNode().getText();
+    // Also check opening elements for custom components (uppercase) — only when enabled
+    if (scanCustomComponents) {
+      for (const element of openingElements) {
+        const tagName = element.getTagNameNode().getText();
 
-      if (tagName[0] !== tagName[0].toUpperCase()) continue;
-      if (!/button/i.test(tagName)) continue;
+        if (tagName[0] !== tagName[0].toUpperCase()) continue;
+        if (!/button/i.test(tagName)) continue;
 
-      const hasTypeAttr = element
-        .getAttributes()
-        .some(
-          (attr) =>
-            attr.isKind(SyntaxKind.JsxAttribute) &&
-            attr.getNameNode().getText() === "type",
-        );
+        const hasTypeAttr = element
+          .getAttributes()
+          .some(
+            (attr) =>
+              attr.isKind(SyntaxKind.JsxAttribute) &&
+              attr.getNameNode().getText() === "type",
+          );
 
-      if (!hasTypeAttr) {
-        const { line, column } = file.getLineAndColumnAtPos(
-          element.getStart(),
-        );
-        violations.push({
-          rule: "button-type",
-          filePath,
-          line,
-          column,
-          element: `<${tagName}>`,
-          message: `Custom component <${tagName}> may render a <button> without an explicit "type" attribute. Consider passing type="button".`,
-          fix: {
-            type: "insert-attr",
-            attribute: "type",
-            value: "button",
-          },
-        });
+        if (!hasTypeAttr) {
+          const { line, column } = file.getLineAndColumnAtPos(
+            element.getStart(),
+          );
+          violations.push({
+            rule: "button-type",
+            filePath,
+            line,
+            column,
+            element: `<${tagName}>`,
+            message: `Custom component <${tagName}> may render a <button> without an explicit "type" attribute. Consider passing type="button".`,
+            fix: {
+              type: "insert-attr",
+              attribute: "type",
+              value: "button",
+            },
+          });
+        }
       }
     }
 
     return violations;
   },
 };
+}

@@ -400,15 +400,17 @@ Finds `<button>` elements with no accessible name — no text content, no `aria-
 
 **Fix:** Reads icon component name (e.g. `TrashIcon`, `XIcon`, `ChevronLeft`), parent component context, nearby text → AI generates `aria-label`. Falls back to icon name heuristic if AI unavailable (`TrashIcon` → `"Delete"`).
 
+**Variable in scope:** When the button is inside a `.map()` callback (e.g. `sections.map((section) => ...)`) and a variable like `section.label` is used in the content, the generated label includes it: `aria-label={\`Go to section ${section.label}\`}`. Same for generic existing labels — suggests replacing `aria-label="Przejdź do sekcji"` with the variable when it appears in the button content.
+
 #### `link-label` (AI)
 
-Same as `button-label` but for `<a>` and `<Link>` elements wrapping only an icon or image without alt text.
+Same as `button-label` but for `<a>` and `<Link>` elements wrapping only an icon or image without alt text. Uses variable in scope when inside `.map()` (e.g. `item.label`).
 
 #### `input-label` (AI)
 
 Finds `<input>`, `<select>`, `<textarea>` elements without an associated `<label htmlFor>` or `aria-label`.
 
-**Fix:** Reads `placeholder`, `name`, `id`, `type`, surrounding form context → AI generates either a `<label>` element (preferred) or `aria-label` attribute.
+**Fix:** Reads `placeholder`, `name`, `id`, `type`, surrounding form context → AI generates either a `<label>` element (preferred) or `aria-label` attribute. Uses variable in scope when input is inside `.map()` (e.g. `field.placeholder`, `field.label`).
 
 #### `html-lang` (deterministic)
 

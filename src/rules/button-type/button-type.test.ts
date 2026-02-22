@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { Project } from "ts-morph";
-import { buttonTypeRule } from "./button-type.rule.js";
+import { createButtonTypeRule } from "./button-type.rule.js";
 import { applyButtonTypeFix } from "./button-type.fix.js";
+
+const buttonTypeRule = createButtonTypeRule({ scanCustomComponents: false });
+const buttonTypeRuleWithCustom = createButtonTypeRule({ scanCustomComponents: true });
 
 function createSourceFile(code: string) {
   const project = new Project({
@@ -86,14 +89,14 @@ describe("buttonTypeRule", () => {
     expect(violations).toHaveLength(0);
   });
 
-  it("reports a violation with fix for custom Button components", () => {
+  it("reports a violation with fix for custom Button components when scanCustomComponents is true", () => {
     const file = createSourceFile(`
       export default function App() {
         return <Button>Click</Button>;
       }
     `);
 
-    const violations = buttonTypeRule.scan(file);
+    const violations = buttonTypeRuleWithCustom.scan(file);
     expect(violations).toHaveLength(1);
     expect(violations[0].element).toBe("<Button>");
     expect(violations[0].fix).toBeDefined();
@@ -103,14 +106,14 @@ describe("buttonTypeRule", () => {
     expect(violations[0].message).toContain("Custom component");
   });
 
-  it("reports a violation with fix for IconButton components", () => {
+  it("reports a violation with fix for IconButton components when scanCustomComponents is true", () => {
     const file = createSourceFile(`
       export default function App() {
         return <IconButton />;
       }
     `);
 
-    const violations = buttonTypeRule.scan(file);
+    const violations = buttonTypeRuleWithCustom.scan(file);
     expect(violations).toHaveLength(1);
     expect(violations[0].element).toBe("<IconButton>");
     expect(violations[0].fix).toBeDefined();
@@ -121,6 +124,17 @@ describe("buttonTypeRule", () => {
     const file = createSourceFile(`
       export default function App() {
         return <Button type="submit">Submit</Button>;
+      }
+    `);
+
+    const violations = buttonTypeRuleWithCustom.scan(file);
+    expect(violations).toHaveLength(0);
+  });
+
+  it("does not report for custom Button when scanCustomComponents is false (default)", () => {
+    const file = createSourceFile(`
+      export default function App() {
+        return <Button>Click</Button>;
       }
     `);
 
@@ -241,7 +255,7 @@ describe("applyButtonTypeFix", () => {
       }
     `);
 
-    const violations = buttonTypeRule.scan(file);
+    const violations = buttonTypeRuleWithCustom.scan(file);
     expect(violations).toHaveLength(1);
 
     applyButtonTypeFix(file, violations[0]);
@@ -258,7 +272,7 @@ describe("applyButtonTypeFix", () => {
       }
     `);
 
-    const violations = buttonTypeRule.scan(file);
+    const violations = buttonTypeRuleWithCustom.scan(file);
     expect(violations).toHaveLength(1);
 
     applyButtonTypeFix(file, violations[0]);

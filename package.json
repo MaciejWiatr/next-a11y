@@ -22,9 +22,12 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "vitest run && evalite",
     "test:watch": "vitest",
-    "test:example": "node scripts/test-example.mjs"
+    "test:integration": "vitest run tests/integration",
+    "test:example": "node scripts/test-example.mjs",
+    "eval:dev": "evalite watch",
+    "eval": "evalite"
   },
   "keywords": [
     "next",
@@ -45,9 +48,10 @@
   },
   "devDependencies": {
     "@ai-sdk/openai": "^3.0.30",
+    "evalite": "^1.0.0-beta.16",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^2.0.0"
+    "vitest": "^4.0.0"
   },
   "peerDependencies": {
     "@ai-sdk/anthropic": ">=3.0.0",

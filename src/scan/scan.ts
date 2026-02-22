@@ -72,7 +72,6 @@ export async function detect(
   }
 
   const rules = getRulesForConfig(config.rules, config.noAi, {
-    fillAlt: config.fillAlt,
     locale: config.locale,
   });
   const allViolations: Violation[] = [];
@@ -141,8 +140,6 @@ export async function applyAllFixes(
   const byFile = new Map<string, Violation[]>();
   for (const v of violations) {
     if (!v.fix) continue;
-    const rule = ctx.rules.find((r) => r.id === v.rule);
-    if (ctx.config.noAi && rule?.type === "ai") continue;
     const list = byFile.get(v.filePath) ?? [];
     list.push(v);
     byFile.set(v.filePath, list);
@@ -187,9 +184,6 @@ export async function fixViolation(
 ): Promise<boolean> {
   if (!violation.fix) return false;
 
-  const rule = ctx.rules.find((r) => r.id === violation.rule);
-  if (ctx.config.noAi && rule?.type === "ai") return false;
-
   try {
     const sourceFile = ctx.project.getSourceFile(violation.filePath);
     if (!sourceFile) return false;
@@ -204,14 +198,20 @@ export async function fixViolation(
  */
 export async function finalize(
   ctx: ScanContext,
-  fixedCount: number
+  fixedCount: number,
+  fixed?: FixedViolation[]
 ): Promise<ScanResult> {
   if (fixedCount > 0) {
     await ctx.project.save();
   }
 
+  const fixedSet = new Set(
+    (fixed ?? []).map((f) => `${f.filePath}:${f.line}:${f.rule}`)
+  );
+
   const remainingViolations = ctx.config.fix
     ? ctx.violations.filter((v) => {
+        if (fixedSet.has(`${v.filePath}:${v.line}:${v.rule}`)) return false;
         if (!v.fix) return true;
         if (ctx.config.noAi && ctx.rules.find((r) => r.id === v.rule)?.type === "ai") return true;
         return false;
@@ -246,10 +246,12 @@ export async function scan(
   }
 
   let fixedCount = 0;
+  let fixed: FixedViolation[] = [];
   if (config.fix) {
-    const { fixedCount: n } = await applyAllFixes(ctx, ctx.violations);
-    fixedCount = n;
+    const result = await applyAllFixes(ctx, ctx.violations);
+    fixedCount = result.fixedCount;
+    fixed = result.fixed;
   }
 
-  return finalize(ctx, fixedCount);
+  return finalize(ctx, fixedCount, fixed);
 }

@@ -176,4 +176,16 @@ describe("input-label rule", () => {
     expect(violations[1].message).toContain("<select>");
     expect(violations[2].message).toContain("<textarea>");
   });
+
+  it("uses variable in scope when input is inside map", async () => {
+    const file = createFile(`
+      {fields.map((field) => (
+        <input key={field.id} type="text" placeholder={field.placeholder} />
+      ))}
+    `);
+    const violations = inputLabelRule.scan(file);
+    expect(violations).toHaveLength(1);
+    const value = await (violations[0].fix!.value as Function)();
+    expect(value).toContain("field.");
+  });
 });

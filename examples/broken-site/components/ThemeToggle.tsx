@@ -5,8 +5,8 @@ export function ThemeToggle() {
 
   return (
     <div>
-      <button onClick={toggle}><SunIcon /></button>
-      <button onClick={toggle}><MoonIcon /></button>
+      <button onClick={toggle} type="button"><SunIcon /></button>
+      <button onClick={toggle} type="button"><MoonIcon /></button>
     </div>
   );
 }

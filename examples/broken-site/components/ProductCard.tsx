@@ -4,7 +4,7 @@ import Image from "next/image";
 
 export function ProductCard() {
   return (
-    <div tabIndex={3}>
+    <div tabIndex={0}>
       <Image src="/product.jpg" alt="Cool product dashboard" width={300} height={200} />
       <h3>Product Name</h3>
       <p>$29.99</p>

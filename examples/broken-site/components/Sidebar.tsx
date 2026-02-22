@@ -6,8 +6,8 @@ export function Sidebar() {
 
   return (
     <aside>
-      <button onClick={toggle}><MenuIcon /></button>
-      <button onClick={close}><XIcon /></button>
+      <button onClick={toggle} type="button"><MenuIcon /></button>
+      <button onClick={close} type="button"><XIcon /></button>
     </aside>
   );
 }

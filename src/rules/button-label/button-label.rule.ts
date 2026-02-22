@@ -2,6 +2,10 @@ import type { SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
 import { getIconLabel, getGenericLabel } from "./icon-name-map.js";
+import {
+  findLabelVariableInScope,
+  wrapLabelWithVariable,
+} from "../../utils/find-label-variable.js";
 
 export function createButtonLabelRule(options: { locale?: string }): Rule {
   const locale = options.locale ?? "en";
@@ -22,10 +26,39 @@ export function createButtonLabelRule(options: { locale?: string }): Rule {
       const tagName = el.getTagNameNode().getText();
       if (tagName !== "button") continue;
 
-      // Check for aria-label or aria-labelledby
-      if (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby")) {
-        continue;
+      const ariaLabelAttr = el.getAttribute("aria-label");
+      if (el.getAttribute("aria-labelledby")) continue;
+
+      // Generic aria-label in map: suggest using variable (e.g. section.label)
+      if (ariaLabelAttr?.getKind() === SyntaxKind.JsxAttribute) {
+        const init = ariaLabelAttr.asKind(SyntaxKind.JsxAttribute)?.getInitializer();
+        if (init?.getKind() === SyntaxKind.StringLiteral) {
+          const currentLabel =
+            init.asKind(SyntaxKind.StringLiteral)?.getLiteralValue() ?? "";
+          const line = el.getStartLineNumber();
+          const varRef = findLabelVariableInScope(file, line, {
+            usedInContent: true,
+          });
+          if (varRef && currentLabel.length > 0) {
+            violations.push({
+              rule: "button-label",
+              filePath,
+              line,
+              column: el.getStart() - el.getStartLinePos(),
+              element: el.getText().slice(0, 80),
+              message: "Use variable in aria-label for better screen reader context",
+              fix: {
+                type: "replace-attr",
+                attribute: "aria-label",
+                value: wrapLabelWithVariable(currentLabel, varRef),
+              },
+            });
+            continue;
+          }
+        }
       }
+
+      if (ariaLabelAttr) continue;
 
       // Get icon and content context
       const iconName = getIconName(el);
@@ -68,10 +101,11 @@ export function createButtonLabelRule(options: { locale?: string }): Rule {
       // Skip buttons with text/content but no icon — they already have an accessible name
       if (hasContent && !iconName) continue;
 
+      const line = el.getStartLineNumber();
       violations.push({
         rule: "button-label",
         filePath,
-        line: el.getStartLineNumber(),
+        line,
         column: el.getStart() - el.getStartLinePos(),
         element: el.getText().slice(0, 80),
         message: "Button has no accessible name",
@@ -83,14 +117,17 @@ export function createButtonLabelRule(options: { locale?: string }): Rule {
             const nestedText = buttonElement
               ? getNestedTextContent(buttonElement)
               : "";
+            let base: string;
             if (nestedText.trim().length > 0) {
-              return nestedText.trim();
+              base = nestedText.trim();
+            } else if (iconName) {
+              base = getIconLabel(iconName, locale);
+            } else {
+              base = getGenericLabel("Button", locale);
             }
-            // Fallback heuristic from icon name (locale-aware)
-            if (iconName) {
-              return getIconLabel(iconName, locale);
-            }
-            return getGenericLabel("Button", locale);
+            const varRef = findLabelVariableInScope(file, line);
+            if (varRef) return wrapLabelWithVariable(base, varRef);
+            return base;
           },
         },
       });

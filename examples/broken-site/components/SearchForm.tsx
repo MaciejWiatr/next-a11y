@@ -4,7 +4,7 @@ export function SearchForm() {
   return (
     <form role="search">
       <input type="text" placeholder="Search products..." />
-      <button><SearchIcon /></button>
+      <button type="button"><SearchIcon /></button>
     </form>
   );
 }

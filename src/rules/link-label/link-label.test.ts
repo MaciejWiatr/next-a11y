@@ -142,4 +142,19 @@ describe("link-label rule", () => {
     const violations = linkLabelRule.scan(file);
     expect(violations).toHaveLength(0);
   });
+
+  it("uses variable in scope when link is inside map", async () => {
+    const file = createFile(`
+      import Link from "next/link";
+      {navItems.map((item) => (
+        <Link key={item.id} href={item.href} title={item.label}>
+          <ExternalLinkIcon />
+        </Link>
+      ))}
+    `);
+    const violations = linkLabelRule.scan(file);
+    expect(violations).toHaveLength(1);
+    const value = await (violations[0].fix!.value as Function)();
+    expect(value).toContain("item.label");
+  });
 });

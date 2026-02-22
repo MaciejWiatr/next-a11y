@@ -9,6 +9,10 @@ import { extractContext } from "../scan/context.js";
 import { IMG_ALT_SYSTEM_PROMPT, buildImgAltPrompt } from "../rules/img-alt/img-alt.prompt.js";
 import { resolveImageSource, resolveStaticImportPath } from "../rules/img-alt/img-alt.resolve.js";
 import { getIconLabel, ICON_LABEL_OVERRIDES } from "../rules/button-label/icon-name-map.js";
+import {
+  findLabelVariableInScope,
+  wrapLabelWithVariable,
+} from "../utils/find-label-variable.js";
 import { SyntaxKind, Project } from "ts-morph";
 import pc from "picocolors";
 import { PROVIDER_ENV } from "../config/schema.js";
@@ -22,17 +26,7 @@ const AI_SETUP_SUGGESTION = `  Either:
     openrouter: OPENROUTER_API_KEY
 `;
 
-const CODE_CONTEXT_SYSTEM = `You are an accessibility expert. Generate an accessible aria-label for icon-only buttons and links.
-
-Rules:
-- Return ONLY the label text, nothing else
-- Output MUST be in the language of the locale (e.g. Polish for pl, German for de)
-- Use action-oriented phrasing: describe what happens when the user activates it, not what the icon looks like
-- Buttons: use verbs like "Add to cart", "Add to favorites", "Share", "Delete item", "Close"
-- Links to social/destination: use "Visit Twitter", "Visit Instagram", "Open in new tab"
-- Avoid bare nouns: "Cart" → "Add to cart", "Twitter" → "Visit Twitter", "Heart" → "Add to favorites"
-- Keep it short: 2-5 words
-- Use the icon name and component context to infer the action`;
+import { ARIA_LABEL_SYSTEM, buildAriaLabelPrompt } from "./aria-label-prompt.js";
 
 const METADATA_TITLE_SYSTEM = `You are an accessibility expert. Generate a concise page title for a Next.js route.
 Rules:
@@ -88,6 +82,9 @@ export async function resolveAiFixes(opts: AiResolveOptions): Promise<void> {
 
   for (const violation of aiViolations) {
     try {
+      // Skip if fix value already resolved (e.g. generic aria-label → variable replacement)
+      if (typeof violation.fix?.value === "string") continue;
+
       const sourceFile = project.getSourceFile(violation.filePath);
       if (!sourceFile) continue;
 
@@ -116,10 +113,14 @@ export async function resolveAiFixes(opts: AiResolveOptions): Promise<void> {
       }
 
       if (generatedValue) {
-        // Replace the fix value with the AI-generated result
-        violation.fix!.value = generatedValue;
+        // Use variable in scope when element is inside .map() etc.
+        const varRef = findLabelVariableInScope(sourceFile, violation.line);
+        const finalValue = varRef
+          ? wrapLabelWithVariable(generatedValue, varRef)
+          : generatedValue;
+        violation.fix!.value = finalValue;
         resolved++;
-        onProgress?.(resolved, aiViolations.length, violation, generatedValue);
+        onProgress?.(resolved, aiViolations.length, violation, finalValue);
       } else if (violation.rule === "img-alt") {
         // Fallback: derive alt from filename when AI can't resolve (e.g. unresolvable, API error)
         const heuristic = getHeuristicImgAlt(sourceFile, violation);
@@ -258,17 +259,17 @@ async function resolveCodeContext(
     return { text: label };
   }
 
-  // Build prompt
-  let prompt = `Generate an aria-label for this icon-only ${violation.rule === "button-label" ? "button" : violation.rule === "link-label" ? "link" : "input"}:\n\n`;
-  if (iconName) prompt += `Icon component: ${iconName}\n`;
-  prompt += `Element: ${element}\n`;
-  prompt += `Component: ${context.componentName}\n`;
-  if (context.route) prompt += `Route: ${context.route}\n`;
-  if (context.nearbyHeadings.length > 0) prompt += `Nearby headings: ${context.nearbyHeadings.join(", ")}\n`;
-  prompt += `Locale: ${config.locale}\n`;
-  prompt += `\nReturn ONLY the action-oriented label (e.g. "Add to cart", "Visit Twitter").`;
+  const prompt = buildAriaLabelPrompt({
+    iconName: iconName ?? undefined,
+    element,
+    componentName: context.componentName,
+    route: context.route,
+    nearbyHeadings: context.nearbyHeadings,
+    locale: config.locale,
+    rule: violation.rule as "button-label" | "link-label" | "input-label",
+  });
 
-  const { text, usage } = await generate({ model, system: CODE_CONTEXT_SYSTEM, prompt });
+  const { text, usage } = await generate({ model, system: ARIA_LABEL_SYSTEM, prompt });
 
   cache.set(cacheKey, {
     value: text,

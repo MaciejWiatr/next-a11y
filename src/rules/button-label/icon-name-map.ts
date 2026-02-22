@@ -29,6 +29,8 @@ export const ICON_LABEL_OVERRIDES: Record<string, string> = {
   ExternalLinkIcon: "Open in new tab",
   DotsVerticalIcon: "More options",
   DotsHorizontalIcon: "More options",
+  HashIcon: "Go to section",
+  Hash: "Go to section",
   SunIcon: "Light mode",
   MoonIcon: "Dark mode",
   TwitterIcon: "Visit Twitter",

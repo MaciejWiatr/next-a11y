@@ -173,11 +173,10 @@ export default defineConfig({
     exclude: ["**/*.test.*", "**/*.stories.*"],
   },
   rules: {
-    "img-alt": "fix", // 'fix' | 'warn' | 'off'
-    "button-label": "fix",
-    "emoji-alt": "fix",
+    "img-alt": "fix", // or { level: "fix", fillAlt: true }
+    "button-type": "fix", // or { level: "fix", scanCustomComponents: true } for <Button>, <IconButton>
     "heading-order": "warn",
-    // ...all 15 rules configurable
+    // ...all 15 rules; each can be "fix"|"warn"|"off" or { level, ...options }
   },
 });
 ```
@@ -240,6 +239,13 @@ npx next-a11y scan . --fix
 ```
 
 `broken-site` is an intentionally inaccessible Next.js app that triggers all 15 rules.
+
+## Testing
+
+```bash
+npm run test   # Vitest + Evalite (AI label + img-alt evals)
+npm run eval   # Evalite only (requires OPENAI_API_KEY)
+```
 
 ## How it works
 

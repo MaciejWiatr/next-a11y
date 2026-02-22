@@ -2,17 +2,29 @@ import type { RuleId, RuleSetting } from "../scan/types.js";
 
 export type ProviderName = "openai" | "anthropic" | "google" | "ollama" | "openrouter";
 
+/** Per-rule config: shorthand "fix"|"warn"|"off" or object with level + rule-specific options. */
+export type RuleConfig =
+  | RuleSetting
+  | { level: RuleSetting; scanCustomComponents?: boolean; fillAlt?: boolean };
+
 export interface A11yConfig {
   provider?: ProviderName;
   model?: string;
   locale?: string;
   cache?: string;
-  fillAlt?: boolean;
   scanner?: {
     include?: string[];
     exclude?: string[];
   };
-  rules?: Partial<Record<RuleId, RuleSetting>>;
+  rules?: Partial<Record<RuleId, RuleConfig>>;
+}
+
+export interface ResolvedRuleConfig {
+  level: RuleSetting;
+  /** button-type: scanCustomComponents (default false) */
+  scanCustomComponents?: boolean;
+  /** img-alt: fillAlt (default true) */
+  fillAlt?: boolean;
 }
 
 export interface ResolvedConfig {
@@ -24,11 +36,10 @@ export interface ResolvedConfig {
     include: string[];
     exclude: string[];
   };
-  rules: Record<RuleId, RuleSetting>;
+  rules: Record<RuleId, ResolvedRuleConfig>;
   fix: boolean;
   interactive: boolean;
   noAi: boolean;
-  fillAlt: boolean;
   quiet: boolean;
   minScore?: number;
 }
@@ -49,7 +60,7 @@ export const PROVIDER_ENV: Record<ProviderName, string | null> = {
   openrouter: "OPENROUTER_API_KEY",
 };
 
-export const DEFAULT_RULES: Record<RuleId, RuleSetting> = {
+export const DEFAULT_RULES: Record<RuleId, RuleConfig> = {
   "img-alt": "fix",
   "button-label": "fix",
   "link-label": "fix",
@@ -66,6 +77,28 @@ export const DEFAULT_RULES: Record<RuleId, RuleSetting> = {
   "heading-order": "warn",
   "no-div-interactive": "warn",
 };
+
+const RULE_OPTION_DEFAULTS: Record<RuleId, Partial<ResolvedRuleConfig>> = {
+  "button-type": { scanCustomComponents: false },
+  "img-alt": { fillAlt: true },
+} as const;
+
+export function resolveRuleConfig(
+  ruleId: RuleId,
+  config: RuleConfig | undefined
+): ResolvedRuleConfig {
+  const merged = config ?? DEFAULT_RULES[ruleId];
+  const level = typeof merged === "string" ? merged : merged.level;
+  const opts = typeof merged === "string" ? {} : merged;
+  const defaults = RULE_OPTION_DEFAULTS[ruleId] ?? {};
+  return {
+    level,
+    // button-type: explicitly false by default
+    scanCustomComponents: opts.scanCustomComponents ?? defaults.scanCustomComponents ?? false,
+    // img-alt: explicitly true by default
+    fillAlt: opts.fillAlt ?? defaults.fillAlt ?? true,
+  };
+}
 
 export const DEFAULT_CONFIG: A11yConfig = {
   locale: "en",

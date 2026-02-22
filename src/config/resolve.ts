@@ -1,7 +1,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { A11yConfig, ResolvedConfig, ProviderName } from "./schema.js";
-import { DEFAULT_CONFIG, DEFAULT_RULES, PROVIDER_DEFAULTS, PROVIDER_ENV } from "./schema.js";
+import {
+  DEFAULT_CONFIG,
+  DEFAULT_RULES,
+  PROVIDER_DEFAULTS,
+  PROVIDER_ENV,
+  resolveRuleConfig,
+} from "./schema.js";
+import type { RuleId } from "../scan/types.js";
 
 export interface CLIFlags {
   fix?: boolean;
@@ -56,6 +63,19 @@ export function resolveConfig(
     merged.model ??
     (provider ? PROVIDER_DEFAULTS[provider] : "gpt-4o-mini");
 
+  const rawRules = { ...DEFAULT_RULES, ...merged.rules };
+  const rules = Object.fromEntries(
+    (Object.keys(DEFAULT_RULES) as RuleId[]).map((id) => [
+      id,
+      resolveRuleConfig(id, rawRules[id]),
+    ])
+  ) as ResolvedConfig["rules"];
+
+  // CLI --fill-alt overrides img-alt.fillAlt
+  if (cliFlags.fillAlt !== undefined) {
+    rules["img-alt"] = { ...rules["img-alt"], fillAlt: cliFlags.fillAlt };
+  }
+
   return {
     provider,
     model,
@@ -65,11 +85,10 @@ export function resolveConfig(
       include: merged.scanner?.include ?? DEFAULT_CONFIG.scanner!.include!,
       exclude: merged.scanner?.exclude ?? DEFAULT_CONFIG.scanner!.exclude!,
     },
-    rules: { ...DEFAULT_RULES, ...merged.rules },
+    rules,
     fix: cliFlags.fix ?? false,
     interactive: cliFlags.interactive ?? false,
     noAi: cliFlags.noAi ?? false,
-    fillAlt: cliFlags.fillAlt ?? merged.fillAlt ?? true,
     minScore: cliFlags.minScore,
     quiet: cliFlags.quiet ?? false,
   };

@@ -4,8 +4,8 @@ import Link from "next/link";
 export function Navbar() {
   return (
     <nav>
-      <Link href="/"><a className="nav-link">Home</a></Link>
-      <Link href="/about"><a className="nav-link">About</a></Link>
+      <Link href="/" className="nav-link">Home</Link>
+      <Link href="/about" className="nav-link">About</Link>
       <a href="https://twitter.com"><TwitterIcon /></a>
       <a href="https://github.com"><GithubIcon /></a>
     </nav>

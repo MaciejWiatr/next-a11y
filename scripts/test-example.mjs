@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * test:example - Copies broken-site, runs next-a11y --fix, validates 0 violations
- * Usage: node scripts/test-example.mjs
+ * Usage: node scripts/test-example.mjs [--no-cleanup]
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -37,6 +37,8 @@ function run(cmd, args, cwd = ROOT, opts = {}) {
   return { ...r, output: (r.stdout || "") + (r.stderr || "") };
 }
 
+const noCleanup = process.argv.includes("--no-cleanup");
+
 function main() {
   console.log("  test:example — copy, fix, validate\n");
 
@@ -67,7 +69,7 @@ function main() {
   }
   console.log("     Done.\n");
 
-  // 3. Run next-a11y scan --fix (use local bin)
+  // 3. Run next-a11y scan --fix (requires AI provider + API key in .env)
   console.log("  3. Running next-a11y scan . --fix");
   const fixResult = run("node", [path.join(ROOT, "bin/cli.js"), "scan", tmpDir, "--fix", "--locale", "pl"], ROOT);
   if (fixResult.status !== 0) {
@@ -104,8 +106,12 @@ function main() {
   console.log("     Build OK.\n");
 
   // Cleanup
-  fs.rmSync(tmpDir, { recursive: true });
-  console.log("  6. Cleanup done.");
+  if (noCleanup) {
+    console.log("  6. Skipping cleanup (--no-cleanup). Output in", tmpDir);
+  } else {
+    fs.rmSync(tmpDir, { recursive: true });
+    console.log("  6. Cleanup done.");
+  }
   console.log("\n  test:example passed.\n");
 }
 

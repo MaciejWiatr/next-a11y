@@ -1,6 +1,10 @@
 import type { SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { Rule, Violation } from "../../scan/types.js";
+import {
+  findLabelVariableInScope,
+  wrapLabelWithVariable,
+} from "../../utils/find-label-variable.js";
 
 const INPUT_TAGS = ["input", "select", "textarea"];
 
@@ -54,10 +58,11 @@ export const inputLabelRule: Rule = {
       const placeholder = getStringAttribute(el, "placeholder");
       const name = getStringAttribute(el, "name");
 
+      const line = el.getStartLineNumber();
       violations.push({
         rule: "input-label",
         filePath,
-        line: el.getStartLineNumber(),
+        line,
         column: el.getStart() - el.getStartLinePos(),
         element: el.getText().slice(0, 80),
         message: `<${tagName}> is missing an associated label`,
@@ -65,19 +70,25 @@ export const inputLabelRule: Rule = {
           type: "insert-attr",
           attribute: "aria-label",
           value: async () => {
-            // Heuristic fallback
-            if (placeholder) return placeholder;
-            if (name) {
-              return name
+            let base: string;
+            if (placeholder) {
+              base = placeholder;
+            } else if (name) {
+              base = name
                 .replace(/([a-z])([A-Z])/g, "$1 $2")
                 .replace(/[_-]/g, " ")
                 .replace(/^\w/, (c) => c.toUpperCase());
+            } else {
+              base =
+                tagName === "select"
+                  ? "Select option"
+                  : tagName === "textarea"
+                    ? "Text input"
+                    : "Input";
             }
-            return tagName === "select"
-              ? "Select option"
-              : tagName === "textarea"
-                ? "Text input"
-                : "Input";
+            const varRef = findLabelVariableInScope(file, line);
+            if (varRef) return wrapLabelWithVariable(base, varRef);
+            return base;
           },
         },
       });
